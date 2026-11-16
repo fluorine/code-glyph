@@ -1,0 +1,29 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Test
+        run: dotnet test tests/CodeGlyph.Core.Tests --configuration Release
+
+      - name: Build VSIX
+        run: msbuild src/CodeGlyph.Vsix/CodeGlyph.Vsix.csproj /restore /p:Configuration=Release /v:m
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CodeGlyph.vsix
+          path: src/CodeGlyph.Vsix/bin/Release/net48/CodeGlyph.Vsix.vsix

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodeGlyph.Core/CodeGlyph.Core.csproj" />
+    <Project Path="src/CodeGlyph.Vsix/CodeGlyph.Vsix.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodeGlyph.Core.Tests/CodeGlyph.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PackIcons/PackIcons.csproj" />
+  </Folder>
+</Solution>

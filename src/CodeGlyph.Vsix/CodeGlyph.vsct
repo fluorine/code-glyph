@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <Extern href="stdidcmd.h"/>
+  <Extern href="vsshlids.h"/>
+
+  <Commands package="guidCodeGlyphPackage">
+    <Groups>
+      <Group guid="guidCodeGlyphCmdSet" id="CodeGlyphGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS"/>
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidCodeGlyphCmdSet" id="ToggleCommandId" priority="0x0100" type="Button">
+        <Parent guid="guidCodeGlyphCmdSet" id="CodeGlyphGroup"/>
+        <Strings>
+          <ButtonText>CodeGlyph: Show icons</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidCodeGlyphCmdSet" id="ClearCacheCommandId" priority="0x0101" type="Button">
+        <Parent guid="guidCodeGlyphCmdSet" id="CodeGlyphGroup"/>
+        <Strings>
+          <ButtonText>CodeGlyph: Clear icon cache</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <Symbols>
+    <GuidSymbol name="guidCodeGlyphPackage" value="{5f3c8a1e-7b24-4d96-a0c5-3e1d92b7f410}" />
+    <GuidSymbol name="guidCodeGlyphCmdSet" value="{8c1d4e72-93ab-4f05-b6e8-2a7c5d09e3f1}">
+      <IDSymbol name="CodeGlyphGroup" value="0x1020" />
+      <IDSymbol name="ToggleCommandId" value="0x0100" />
+      <IDSymbol name="ClearCacheCommandId" value="0x0101" />
+    </GuidSymbol>
+  </Symbols>
+
+</CommandTable>
