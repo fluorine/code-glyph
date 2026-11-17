@@ -12,6 +12,12 @@ This project is vibed. Expect rough edges. Pull requests and bug reports are wel
 
 https://github.com/user-attachments/assets/8d75d32d-9804-46a0-9564-79297f83e0fe
 
+## Install
+
+[Install CodeGlyph from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=fluorinestudios.codeglyph),
+or open Extensions > Manage Extensions in Visual Studio and search for "CodeGlyph".
+You can also download the `.vsix` file from the [releases page](https://github.com/fluorine/code-glyph/releases).
+
 ## Rules
 
 - The icon never covers code. If the free space is too small, CodeGlyph shows no icon.
