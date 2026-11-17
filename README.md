@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icon.png" alt="CodeGlyph icon" width="128"></p>
+
 # CodeGlyph
 
 CodeGlyph is a Visual Studio extension. It draws one subtle icon behind the code, at the
