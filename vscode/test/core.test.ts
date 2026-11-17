@@ -23,7 +23,8 @@ describe('catalog', () => {
     const mail = catalog.get('mail')!;
     const svg = iconToSvg(mail, { color: '#fff', opacity: 0.1, strokeWidth: 2, filled: false });
     expect(svg).toContain('<svg');
-    expect(svg).toContain('stroke-opacity="0.100"');
+    expect(svg).toContain('<g opacity="0.100"');
+    expect(svg).not.toContain('stroke-opacity');
     expect(svgToDataUri(svg)).toMatch(/^data:image\/svg\+xml;base64,/);
   });
   it('prompt text is sorted and stable', () => {

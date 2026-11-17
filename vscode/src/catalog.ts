@@ -41,10 +41,11 @@ export function iconToSvg(icon: IconDef, o: SvgOptions): string {
     .filter(el => allowed.has(el.k))
     .map(el => '<' + el.k + Object.entries(el.a).map(([k, v]) => ` ${esc(k)}="${esc(v)}"`).join('') + '/>')
     .join('');
-  const fill = o.filled ? `fill="${o.color}" fill-opacity="${(o.opacity * 0.5).toFixed(3)}"` : 'fill="none"';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ${fill} stroke="${o.color}" `
-    + `stroke-opacity="${o.opacity.toFixed(3)}" stroke-width="${o.strokeWidth}" stroke-linecap="round" `
-    + `stroke-linejoin="round">${body}</svg>`;
+  const fill = o.filled ? `fill="${o.color}" fill-opacity="0.5"` : 'fill="none"';
+  // Opacity sits on the group. Per-path opacity makes crossing paths look brighter.
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g opacity="${o.opacity.toFixed(3)}" `
+    + `${fill} stroke="${o.color}" stroke-width="${o.strokeWidth}" stroke-linecap="round" `
+    + `stroke-linejoin="round">${body}</g></svg>`;
 }
 
 export function svgToDataUri(svg: string): string {
