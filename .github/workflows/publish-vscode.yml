@@ -42,7 +42,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          file="codeglyph-${VERSION}.vsix"
+          file="codeglyph-vscode-${VERSION}.vsix"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "$file" --clobber
           else
@@ -57,4 +57,4 @@ jobs:
             echo "::warning::Secret VS_MARKETPLACE_PAT is not set. The Marketplace upload was skipped."
             exit 0
           fi
-          npx vsce publish --packagePath "codeglyph-${VERSION}.vsix" --pat "$VS_MARKETPLACE_PAT"
+          npx vsce publish --packagePath "codeglyph-vscode-${VERSION}.vsix" --pat "$VS_MARKETPLACE_PAT"

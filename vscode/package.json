@@ -1,5 +1,5 @@
 {
-  "name": "codeglyph",
+  "name": "codeglyph-vscode",
   "displayName": "CodeGlyph",
   "description": "Subtle AI-chosen watermark icons behind functions, classes and properties, in any programming language.",
   "version": "0.1.0",
