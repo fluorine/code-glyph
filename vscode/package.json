@@ -1,0 +1,89 @@
+{
+  "name": "codeglyph",
+  "displayName": "CodeGlyph",
+  "description": "Subtle AI-chosen watermark icons behind functions, classes and properties, in any programming language.",
+  "version": "0.1.0",
+  "publisher": "fluorinestudios",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": { "type": "git", "url": "https://github.com/fluorine/code-glyph.git", "directory": "vscode" },
+  "homepage": "https://github.com/fluorine/code-glyph",
+  "bugs": { "url": "https://github.com/fluorine/code-glyph/issues" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": [ "Visualization", "Other" ],
+  "keywords": [ "watermark", "icons", "readability", "ai", "symbols" ],
+  "activationEvents": [ "onStartupFinished" ],
+  "capabilities": { "untrustedWorkspaces": { "supported": true } },
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "codeglyph.toggle", "title": "CodeGlyph: Toggle icons" },
+      { "command": "codeglyph.clearCache", "title": "CodeGlyph: Clear icon cache" },
+      { "command": "codeglyph.showUsage", "title": "CodeGlyph: Show usage" },
+      { "command": "codeglyph.setAnthropicKey", "title": "CodeGlyph: Set Claude API key" },
+      { "command": "codeglyph.setOpenAiKey", "title": "CodeGlyph: Set OpenAI API key" }
+    ],
+    "configuration": {
+      "title": "CodeGlyph",
+      "properties": {
+        "codeglyph.enabled": { "type": "boolean", "default": true, "description": "Show icons." },
+        "codeglyph.provider": {
+          "type": "string", "default": "auto", "enum": [ "auto", "anthropic", "openai", "claudeCli" ],
+          "description": "Auto uses an API key when one exists, then the Claude Code CLI. The model gets symbol names and comments. It never gets code bodies."
+        },
+        "codeglyph.anthropicModel": { "type": "string", "default": "claude-haiku-5-5" },
+        "codeglyph.openAiModel": { "type": "string", "default": "gpt-4.1-mini" },
+        "codeglyph.openAiBaseUrl": { "type": "string", "scope": "machine", "default": "https://api.openai.com/v1", "description": "Any OpenAI-compatible endpoint." },
+        "codeglyph.claudeCliPath": { "type": "string", "scope": "machine", "default": "claude", "description": "Path of the claude command. It can only be set in user settings." },
+        "codeglyph.claudeCliModel": { "type": "string", "default": "haiku" },
+        "codeglyph.minConfidence": { "type": "number", "default": 0.7, "minimum": 0, "maximum": 1, "description": "The model must be at least this sure. Higher values show fewer icons." },
+        "codeglyph.editDelaySeconds": { "type": "number", "default": 15, "minimum": 0, "maximum": 600, "description": "Provider calls for new or changed symbols wait this long after your last edit. Cached icons are not delayed." },
+        "codeglyph.logUsage": { "type": "boolean", "default": true, "description": "Write tokens and cost for each provider call to the CodeGlyph output channel." },
+        "codeglyph.excludedLanguages": {
+          "type": "array", "items": { "type": "string" },
+          "default": [ "plaintext", "markdown", "json", "jsonc", "yaml", "xml", "html", "css", "scss", "less", "ini", "properties", "log", "csv", "dockerfile", "makefile", "diff", "git-commit", "scminput", "search-result" ],
+          "description": "Language IDs that never get icons."
+        },
+        "codeglyph.showFor": {
+          "type": "array", "items": { "type": "string", "enum": [ "types", "methods", "properties" ] },
+          "default": [ "types", "methods", "properties" ], "description": "Symbol kinds that get icons."
+        },
+        "codeglyph.minSymbolLines": { "type": "integer", "default": 4, "minimum": 1, "description": "Symbols shorter than this get no icon." },
+        "codeglyph.colorMode": { "type": "string", "default": "theme", "enum": [ "theme", "custom", "bySymbolKind" ] },
+        "codeglyph.customColor": { "type": "string", "default": "#808080" },
+        "codeglyph.kindColors": {
+          "type": "object", "default": { "types": "#4EC9B0", "methods": "#DCDCAA", "properties": "#9CDCFE" },
+          "description": "Colors used when colorMode is bySymbolKind."
+        },
+        "codeglyph.opacity": { "type": "number", "default": 0.08, "minimum": 0.01, "maximum": 0.5 },
+        "codeglyph.renderStyle": { "type": "string", "default": "outline", "enum": [ "outline", "filled" ] },
+        "codeglyph.strokeWidth": { "type": "number", "default": 2, "minimum": 0.5, "maximum": 4 },
+        "codeglyph.placement": {
+          "type": "string", "default": "fixedColumn", "enum": [ "fixedColumn", "afterCode" ],
+          "markdownDescription": "`fixedColumn` puts the icon at `#codeglyph.column#`, behind long lines. `afterCode` puts it right of the longest line of the symbol."
+        },
+        "codeglyph.column": { "type": "integer", "default": 100, "minimum": 10, "description": "Text column where the icon starts. Lower it if your editor is narrow." },
+        "codeglyph.overlapCode": { "type": "boolean", "default": true, "description": "Allow the icon behind code. If off, no icon is shown where it would touch code." },
+        "codeglyph.verticalAlignment": { "type": "string", "default": "center", "enum": [ "top", "center", "bottom" ] },
+        "codeglyph.minLines": { "type": "integer", "default": 4, "minimum": 2, "description": "Smallest icon height in lines. If the free lines are fewer, no icon is shown." },
+        "codeglyph.maxLines": { "type": "integer", "default": 10, "minimum": 2, "description": "Largest icon height in lines." }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
+

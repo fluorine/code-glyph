@@ -5,3 +5,7 @@ obj/
 TestResults/
 node_modules/
 tools/PackIcons/work/
+
+vscode/node_modules/
+vscode/dist/
+vscode/*.vsix

@@ -18,6 +18,12 @@ https://github.com/user-attachments/assets/8d75d32d-9804-46a0-9564-79297f83e0fe
 or open Extensions > Manage Extensions in Visual Studio and search for "CodeGlyph".
 You can also download the `.vsix` file from the [releases page](https://github.com/fluorine/code-glyph/releases).
 
+## VS Code version
+
+The folder [scode/](vscode) holds a VS Code extension. It works with any language that has a language extension with symbols (TypeScript, Python, Go, Java, Rust, C# and more). It uses the same icon set, rules and cache design. See [scode/README.md](vscode/README.md).
+
+The Visual Studio extension in src/ stays C# only.
+
 ## Rules
 
 - The icon never covers code. If the free space is too small, CodeGlyph shows no icon.

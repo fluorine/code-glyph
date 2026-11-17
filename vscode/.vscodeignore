@@ -1,0 +1,8 @@
+**
+!dist/extension.js
+!resources/icons.json.gz
+!media/icon.png
+!package.json
+!README.md
+!LICENSE
+!THIRD-PARTY-NOTICES.md

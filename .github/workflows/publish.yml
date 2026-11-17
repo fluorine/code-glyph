@@ -4,7 +4,7 @@ name: publish
 # src/CodeGlyph.Vsix/source.extension.vsixmanifest.
 on:
   push:
-    tags: [ 'v*' ]
+    tags: [ 'v[0-9]*' ]
 
 permissions:
   contents: write
