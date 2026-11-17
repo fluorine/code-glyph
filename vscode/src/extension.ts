@@ -54,6 +54,7 @@ export function activate(context: vscode.ExtensionContext): void {
       verticalAlignment: c.get('verticalAlignment', 'center'),
       minLines: c.get('minLines', 4),
       maxLines: c.get('maxLines', 10),
+      fadeInMs: c.get('fadeInMs', 700),
     };
   };
 
@@ -72,7 +73,7 @@ export function activate(context: vscode.ExtensionContext): void {
       logUsage: () => cfg().get('logUsage', true),
       log,
     });
-    const renderer = new GlyphRenderer(() => catalog, s => pipeline.lookup(s.descriptor));
+    const renderer = new GlyphRenderer(() => catalog, s => pipeline.lookup(s.descriptor), () => renderAll());
     pipeline.onResolved(() => renderAll());
     services = { catalog, cache, pipeline, renderer };
     return services;
@@ -109,8 +110,8 @@ export function activate(context: vscode.ExtensionContext): void {
       for (const e of vscode.window.visibleTextEditors) if (e.document === doc) render(e);
 
       // A language server may need time to start. Try a few more times when it gave nothing.
-      if (!syms.length && attempt < 3 && doc.lineCount > 4) {
-        setTimeout(() => void scan(doc, immediate, attempt + 1), [2000, 6000, 15000][attempt]);
+      if (!syms.length && attempt < 5 && doc.lineCount > 4) {
+        setTimeout(() => void scan(doc, immediate, attempt + 1), [2000, 6000, 15000, 30000, 60000][attempt]);
         return;
       }
 
@@ -136,6 +137,17 @@ export function activate(context: vscode.ExtensionContext): void {
       scanTimers.set(key, setTimeout(() => void scan(ev.document, false), 500));
     }),
     vscode.workspace.onDidCloseTextDocument(d => { parsed.delete(d.uri.toString()); }),
+    // Diagnostics arrive when a language server is ready. Scan again for files that had no symbols.
+    vscode.languages.onDidChangeDiagnostics(ev => {
+      for (const uri of ev.uris) {
+        const key = uri.toString();
+        if ((parsed.get(key)?.length ?? 0) > 0) continue;
+        const doc = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === key)?.document;
+        if (!doc) continue;
+        clearTimeout(scanTimers.get('diag:' + key));
+        scanTimers.set('diag:' + key, setTimeout(() => void scan(doc, true), 700));
+      }
+    }),
     vscode.window.onDidChangeActiveColorTheme(() => { services?.renderer.reset(); renderAll(); }),
     vscode.workspace.onDidChangeConfiguration(ev => {
       if (!ev.affectsConfiguration('codeglyph')) return;

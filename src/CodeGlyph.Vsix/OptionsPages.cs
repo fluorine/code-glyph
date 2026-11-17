@@ -150,6 +150,10 @@ namespace CodeGlyph.Vsix
         [Description("StickyInSymbol keeps the icon visible while any part of the symbol is on screen.")]
         public VerticalBehavior VerticalBehavior { get; set; } = VerticalBehavior.StickyInSymbol;
 
+        [Category("Style")] [DisplayName("Fade-in time (ms)")]
+        [Description("An icon fades in softly when it first appears. 0 turns the fade off.")]
+        public int FadeInMs { get; set; } = 700;
+
         [Category("Layout")] [DisplayName("Maximum size (px)")]
         public int MaxSize { get; set; } = 200;
 
@@ -198,6 +202,7 @@ namespace CodeGlyph.Vsix
             MarginToCode = (int)s.MarginToCode;
             MarginToEdge = (int)s.MarginToEdge;
             AllowOverCode = s.AllowOverCode;
+            FadeInMs = s.FadeInMs;
             ShowForTypes = s.ShowForTypes;
             ShowForMethods = s.ShowForMethods;
             ShowForProperties = s.ShowForProperties;
@@ -226,6 +231,7 @@ namespace CodeGlyph.Vsix
                     MarginToCode = Clamp(MarginToCode, 0, 400),
                     MarginToEdge = Clamp(MarginToEdge, 0, 400),
                     AllowOverCode = AllowOverCode,
+                    FadeInMs = Clamp(FadeInMs, 0, 5000),
                     ShowForTypes = ShowForTypes,
                     ShowForMethods = ShowForMethods,
                     ShowForProperties = ShowForProperties,

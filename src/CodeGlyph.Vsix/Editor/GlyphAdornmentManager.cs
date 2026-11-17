@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Path = System.Windows.Shapes.Path;
 using Microsoft.VisualStudio.Text;
@@ -53,6 +54,7 @@ namespace CodeGlyph.Vsix.Editor
         private readonly IEditorFormatMap _formatMap;
         private readonly DispatcherTimer _debounce;
         private readonly DispatcherTimer _resolveTimer;
+        private readonly Dictionary<string, DateTime> _firstShown = new Dictionary<string, DateTime>();
         // Not cancelled by edits. A provider call that has started is already billed.
         private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
         private readonly Dictionary<string, Brush> _brushes = new Dictionary<string, Brush>();
@@ -287,10 +289,35 @@ namespace CodeGlyph.Vsix.Editor
                 if (placement == null) continue;
 
                 var path = BuildPath(icon, sym, style, placement.Value.Size);
+                ApplyFade(path, pipeline.KeyOf(sym.Descriptor), style.FadeInMs);
                 Canvas.SetLeft(path, placement.Value.Left + _view.ViewportLeft);
                 Canvas.SetTop(path, placement.Value.Top + _view.ViewportTop);
                 _layer.AddAdornment(AdornmentPositioningBehavior.OwnerControlled, null, null, path, null);
             }
+        }
+
+        /// <summary>
+        /// Fades an icon in once, when it is first drawn in this view. Redraws during the fade
+        /// continue it from the elapsed time. Scrolling never replays it.
+        /// </summary>
+        private void ApplyFade(Path path, string key, int fadeMs)
+        {
+            if (fadeMs <= 0) return;
+            var now = DateTime.UtcNow;
+            if (!_firstShown.TryGetValue(key, out var first))
+            {
+                first = now;
+                _firstShown[key] = now;
+            }
+            var elapsed = (now - first).TotalMilliseconds;
+            if (elapsed >= fadeMs) return;
+
+            path.Opacity = 0;
+            path.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(fadeMs))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(-elapsed),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            });
         }
 
         private static double YOf(int lineNo, bool bottom, int firstNo, int lastNo, ITextSnapshot snapshot, ITextViewLineCollection lines)

@@ -17,6 +17,7 @@ export interface RenderConfig {
   verticalAlignment: Vertical;
   minLines: number;
   maxLines: number;
+  fadeInMs: number;
 }
 
 const MAX_TYPES = 1500;
@@ -29,7 +30,26 @@ export class GlyphRenderer {
   private types = new Map<string, vscode.TextEditorDecorationType>();
   private applied = new WeakMap<vscode.TextEditor, Set<vscode.TextEditorDecorationType>>();
 
-  constructor(private readonly catalog: () => IconCatalog, private readonly iconFor: (s: Sym) => string | null) {}
+  /** When each icon first appeared. A fade plays once for each icon, never on scroll. */
+  private firstShown = new Map<string, number>();
+  private fadeTimer: NodeJS.Timeout | undefined;
+
+  constructor(
+    private readonly catalog: () => IconCatalog,
+    private readonly iconFor: (s: Sym) => string | null,
+    private readonly onFadeDone: () => void = () => {},
+  ) {}
+
+  dispose(): void {
+    clearTimeout(this.fadeTimer);
+    this.reset();
+  }
+
+  /** Switch the faded icons to the plain type after the fade, so a redraw never replays it. */
+  private scheduleFadeDone(ms: number): void {
+    clearTimeout(this.fadeTimer);
+    this.fadeTimer = setTimeout(() => this.onFadeDone(), Math.max(50, ms));
+  }
 
   reset(): void {
     for (const t of this.types.values()) t.dispose();
@@ -82,17 +102,29 @@ export class GlyphRenderer {
       const col = columnFor(width, box.sizeLines, cfg);
       if (col === undefined) continue;
 
+      const fadeKey = [doc.uri.toString(), s.descriptor.kind, s.descriptor.container, s.descriptor.name, icon].join('|');
+      const now = Date.now();
+      let first = this.firstShown.get(fadeKey);
+      if (first === undefined) { first = now; this.firstShown.set(fadeKey, now); }
+      const fading = cfg.fadeInMs > 0 && now - first < cfg.fadeInMs;
+      if (fading) this.scheduleFadeDone(first + cfg.fadeInMs - now + 80);
+
       const color = this.color(cfg, s.descriptor.kind);
       const uri = svgToDataUri(iconToSvg(def, { color, opacity: cfg.opacity, strokeWidth: cfg.strokeWidth, filled: cfg.renderStyle === 'filled' }));
       for (let k = 0; k < box.sizeLines; k++) {
         const line = box.startLine + k;
         if (line >= doc.lineCount) break;
-        const key = [icon, color, cfg.opacity, cfg.strokeWidth, cfg.renderStyle, box.sizeLines, k, col].join('|');
+        const key = [icon, color, cfg.opacity, cfg.strokeWidth, cfg.renderStyle, box.sizeLines, k, col, fading ? cfg.fadeInMs : 0].join('|');
         const type = this.typeFor(key, () => ({
           isWholeLine: true,
           // The value is injected as raw CSS. It gives the line a background image and nothing else.
+          // The fade variant also adds one animation. The keyframes sit after the closing brace.
           backgroundColor: `transparent;background-image:url("${uri}");background-repeat:no-repeat;`
-            + `background-size:${box.sizeLines}lh ${box.sizeLines}lh;background-position:${col}ch calc(-${k} * 1lh)`,
+            + `background-size:${box.sizeLines}lh ${box.sizeLines}lh;background-position:${col}ch calc(-${k} * 1lh)`
+            + (fading
+              ? `;animation:codeglyph-fade ${cfg.fadeInMs}ms ease-out both}`
+                + '@keyframes codeglyph-fade{from{opacity:0}to{opacity:1}}.codeglyph-unused{color:inherit'
+              : ''),
         }));
         const list = ranges.get(type) ?? [];
         list.push(new vscode.Range(line, 0, line, 0));
