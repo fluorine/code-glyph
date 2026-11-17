@@ -32,6 +32,10 @@ namespace CodeGlyph.Vsix
             commands.AddCommand(new MenuCommand(
                 (s, e) => GlyphServices.ClearCache(),
                 new CommandID(CmdSet, 0x0101)));
+
+            commands.AddCommand(new MenuCommand(
+                (s, e) => GlyphServices.ShowUsage(),
+                new CommandID(CmdSet, 0x0102)));
         }
     }
 }

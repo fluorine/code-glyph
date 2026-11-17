@@ -52,6 +52,9 @@ namespace CodeGlyph.Vsix.Editor
         private readonly IAdornmentLayer _layer;
         private readonly IEditorFormatMap _formatMap;
         private readonly DispatcherTimer _debounce;
+        private readonly DispatcherTimer _resolveTimer;
+        // Not cancelled by edits. A provider call that has started is already billed.
+        private readonly CancellationTokenSource _lifetime = new CancellationTokenSource();
         private readonly Dictionary<string, Brush> _brushes = new Dictionary<string, Brush>();
         private ParsedFile? _parsed;
         private CancellationTokenSource _cts = new CancellationTokenSource();
@@ -68,7 +71,9 @@ namespace CodeGlyph.Vsix.Editor
             {
                 Interval = TimeSpan.FromMilliseconds(500),
             };
-            _debounce.Tick += (s, e) => { _debounce.Stop(); ParseNow(); };
+            _debounce.Tick += (s, e) => { _debounce.Stop(); ParseNow(false); };
+            _resolveTimer = new DispatcherTimer(DispatcherPriority.Background, view.VisualElement.Dispatcher);
+            _resolveTimer.Tick += (s, e) => { _resolveTimer.Stop(); ResolveNow(); };
 
             _view.LayoutChanged += OnLayoutChanged;
             _view.ViewportWidthChanged += OnViewportChanged;
@@ -89,7 +94,9 @@ namespace CodeGlyph.Vsix.Editor
             if (_disposed) return;
             _disposed = true;
             _debounce.Stop();
+            _resolveTimer.Stop();
             _cts.Cancel();
+            _lifetime.Cancel();
             _view.LayoutChanged -= OnLayoutChanged;
             _view.ViewportWidthChanged -= OnViewportChanged;
             _view.TextBuffer.Changed -= OnBufferChanged;
@@ -153,7 +160,21 @@ namespace CodeGlyph.Vsix.Editor
             }
         }
 
-        private void ParseNow()
+        private void ResolveNow()
+        {
+            var parsed = _parsed;
+            if (_disposed || parsed == null || !GlyphServices.Settings.Enabled) return;
+            var descriptors = parsed.Symbols.Select(s => s.Descriptor).ToList();
+            var token = _lifetime.Token;
+            Task.Run(async () =>
+            {
+                try { await GlyphServices.Pipeline.ResolveAsync(descriptors, token).ConfigureAwait(false); }
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { GlyphServices.Log("CodeGlyph failed: " + ex.Message); }
+            });
+        }
+
+        private void ParseNow(bool immediate = true)
         {
             if (_disposed) return;
             if (!GlyphServices.Settings.Enabled)
@@ -186,9 +207,21 @@ namespace CodeGlyph.Vsix.Editor
                         if (ct.IsCancellationRequested) return;
                         _parsed = parsed;
                         Redraw();
-                    });
 
-                    await GlyphServices.Pipeline.ResolveAsync(parsed.Symbols.Select(s => s.Descriptor), ct).ConfigureAwait(false);
+                        // Cached icons draw at once. Only cache misses wait for the edit delay.
+                        var delay = GlyphServices.Settings.EditDelaySeconds;
+                        if (immediate || delay <= 0)
+                        {
+                            _resolveTimer.Stop();
+                            ResolveNow();
+                        }
+                        else
+                        {
+                            _resolveTimer.Stop();
+                            _resolveTimer.Interval = TimeSpan.FromSeconds(delay);
+                            _resolveTimer.Start();
+                        }
+                    });
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception ex) { GlyphServices.Log("CodeGlyph failed for " + fileName + ": " + ex.Message); }

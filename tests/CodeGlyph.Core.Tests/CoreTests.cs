@@ -6,7 +6,15 @@ namespace CodeGlyph.Core.Tests;
 
 public class PlacementTests
 {
-    private static readonly GlyphStyle Style = new();
+    private static readonly GlyphStyle Style = new() { AllowOverCode = false };
+
+    [Fact]
+    public void OverCodeModeShowsIconAtViewportRightEvenWithLongLines()
+    {
+        var style = new GlyphStyle();
+        var p = PlacementCalculator.Calculate(0, 400, 5000, 800, 600, style)!.Value;
+        Assert.Equal(800 - style.MarginToEdge, p.Left + p.Size, 3);
+    }
 
     [Fact]
     public void IconNeverOverlapsCode()

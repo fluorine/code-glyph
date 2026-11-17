@@ -41,8 +41,9 @@ namespace CodeGlyph
             var spanHeight = spanBottom - spanTop;
             if (spanHeight <= 0) return null;
 
-            var freeLeft = codeRight + style.MarginToCode;
             var freeRight = viewportWidth - style.MarginToEdge;
+            // Over-code mode: the icon sits behind the text and uses the whole viewport width.
+            var freeLeft = style.AllowOverCode ? style.MarginToEdge : codeRight + style.MarginToCode;
             var freeWidth = freeRight - freeLeft;
 
             var size = Math.Min(Math.Min(spanHeight, freeWidth), style.MaxSize);
@@ -52,7 +53,9 @@ namespace CodeGlyph
             switch (style.HorizontalAlignment)
             {
                 case HorizontalAlignment.AfterCode:
-                    left = freeLeft;
+                    left = style.AllowOverCode
+                        ? Math.Max(freeLeft, Math.Min(codeRight + style.MarginToCode, freeRight - size))
+                        : freeLeft;
                     break;
                 case HorizontalAlignment.CenterOfFreeSpace:
                     left = freeLeft + (freeWidth - size) / 2;

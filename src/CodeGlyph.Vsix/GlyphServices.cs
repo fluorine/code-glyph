@@ -39,7 +39,9 @@ namespace CodeGlyph.Vsix
                             _cache,
                             () => SelectorFactory.Create(Settings.Provider, Http),
                             () => Settings.Style,
-                            Log);
+                            Log,
+                            null,
+                            () => Settings.LogUsage);
                     }
                     return _pipeline;
                 }
@@ -73,7 +75,14 @@ namespace CodeGlyph.Vsix
             SettingsChanged?.Invoke();
         }
 
-        public static void Log(string message)
+        public static void ShowUsage()
+        {
+            Log(Pipeline.Usage.Summary(), activate: true);
+        }
+
+        public static void Log(string message) => Log(message, false);
+
+        private static void Log(string message, bool activate)
         {
             ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
             {
@@ -87,6 +96,7 @@ namespace CodeGlyph.Vsix
                     window.GetPane(ref guid, out _pane);
                 }
                 _pane?.OutputStringThreadSafe(DateTime.Now.ToString("HH:mm:ss") + " " + message + Environment.NewLine);
+                if (activate) _pane?.Activate();
             }).Task.FileAndForget("codeglyph/log");
         }
     }

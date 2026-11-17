@@ -24,6 +24,12 @@
           <ButtonText>CodeGlyph: Clear icon cache</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidCodeGlyphCmdSet" id="ShowUsageCommandId" priority="0x0102" type="Button">
+        <Parent guid="guidCodeGlyphCmdSet" id="CodeGlyphGroup"/>
+        <Strings>
+          <ButtonText>CodeGlyph: Show usage</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -33,6 +39,7 @@
       <IDSymbol name="CodeGlyphGroup" value="0x1020" />
       <IDSymbol name="ToggleCommandId" value="0x0100" />
       <IDSymbol name="ClearCacheCommandId" value="0x0101" />
+      <IDSymbol name="ShowUsageCommandId" value="0x0102" />
     </GuidSymbol>
   </Symbols>
 

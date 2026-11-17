@@ -11,6 +11,8 @@ namespace CodeGlyph.Vsix
     internal sealed class GlyphSettings
     {
         public bool Enabled { get; set; } = true;
+        public int EditDelaySeconds { get; set; } = 15;
+        public bool LogUsage { get; set; } = true;
         public ProviderSettings Provider { get; set; } = new ProviderSettings();
         public GlyphStyle Style { get; set; } = new GlyphStyle();
     }
@@ -36,6 +38,8 @@ namespace CodeGlyph.Vsix
         private sealed class FileModel
         {
             public bool Enabled { get; set; } = true;
+            public int EditDelaySeconds { get; set; } = 15;
+            public bool LogUsage { get; set; } = true;
             public ProviderKind Provider { get; set; } = ProviderKind.Auto;
             public string? AnthropicKeyProtected { get; set; }
             public string AnthropicModel { get; set; } = "claude-haiku-5-5";
@@ -59,6 +63,8 @@ namespace CodeGlyph.Vsix
                         return new GlyphSettings
                         {
                             Enabled = m.Enabled,
+                            EditDelaySeconds = m.EditDelaySeconds,
+                            LogUsage = m.LogUsage,
                             Style = m.Style ?? new GlyphStyle(),
                             Provider = new ProviderSettings
                             {
@@ -88,6 +94,8 @@ namespace CodeGlyph.Vsix
             var model = new FileModel
             {
                 Enabled = s.Enabled,
+                EditDelaySeconds = s.EditDelaySeconds,
+                LogUsage = s.LogUsage,
                 Provider = p.Provider,
                 AnthropicKeyProtected = Protect(p.AnthropicKey),
                 AnthropicModel = p.AnthropicModel,

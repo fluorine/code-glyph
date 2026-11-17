@@ -40,3 +40,18 @@ public class BandTests
         Assert.Equal(5, file.MaxColumns(3, 99));
     }
 }
+
+public class UsageTrackerTests
+{
+    [Fact]
+    public void TotalsAddUpAndCostIsShownWhenReported()
+    {
+        var t = new UsageTracker();
+        t.Add("p", 3, new SelectorUsage { InputTokens = 100, OutputTokens = 10 });
+        var line = t.Add("p", 2, new SelectorUsage { InputTokens = 50, OutputTokens = 5, CostUsd = 0.01 });
+        Assert.Contains("cost $0.0100", line);
+        var s = t.Summary();
+        Assert.Contains("2 calls, 5 symbols", s);
+        Assert.Contains("in 150, out 15", s);
+    }
+}

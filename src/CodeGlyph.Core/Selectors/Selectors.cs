@@ -65,8 +65,24 @@ namespace CodeGlyph.Selectors
         }
     }
 
-    public sealed class AnthropicSelector : IIconSelector
+    internal static class UsageJson
     {
+        public static long Long(JsonElement parent, string name) =>
+            parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var v)
+                && v.ValueKind == JsonValueKind.Number && v.TryGetInt64(out var n) ? n : 0;
+
+        public static double Double(JsonElement parent, string name) =>
+            parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var v)
+                && v.ValueKind == JsonValueKind.Number ? v.GetDouble() : 0;
+
+        public static JsonElement Obj(JsonElement parent, string name) =>
+            parent.ValueKind == JsonValueKind.Object && parent.TryGetProperty(name, out var v) ? v : default;
+    }
+
+    public sealed class AnthropicSelector : IIconSelector, IReportsUsage
+    {
+        public Action<SelectorUsage>? UsageReported { get; set; }
+
         private readonly HttpClient _http;
         private readonly string _key;
         private readonly string _model;
@@ -115,6 +131,14 @@ namespace CodeGlyph.Selectors
 
                     using (var doc = JsonDocument.Parse(text))
                     {
+                        var u = UsageJson.Obj(doc.RootElement, "usage");
+                        UsageReported?.Invoke(new SelectorUsage
+                        {
+                            InputTokens = UsageJson.Long(u, "input_tokens"),
+                            OutputTokens = UsageJson.Long(u, "output_tokens"),
+                            CacheReadTokens = UsageJson.Long(u, "cache_read_input_tokens"),
+                            CacheWriteTokens = UsageJson.Long(u, "cache_creation_input_tokens"),
+                        });
                         var sb = new StringBuilder();
                         foreach (var block in doc.RootElement.GetProperty("content").EnumerateArray())
                         {
@@ -130,8 +154,10 @@ namespace CodeGlyph.Selectors
         internal static string Shorten(string s) => s.Length <= 300 ? s : s.Substring(0, 300);
     }
 
-    public sealed class OpenAiSelector : IIconSelector
+    public sealed class OpenAiSelector : IIconSelector, IReportsUsage
     {
+        public Action<SelectorUsage>? UsageReported { get; set; }
+
         private readonly HttpClient _http;
         private readonly string _key;
         private readonly string _model;
@@ -174,6 +200,12 @@ namespace CodeGlyph.Selectors
 
                     using (var doc = JsonDocument.Parse(text))
                     {
+                        var u = UsageJson.Obj(doc.RootElement, "usage");
+                        UsageReported?.Invoke(new SelectorUsage
+                        {
+                            InputTokens = UsageJson.Long(u, "prompt_tokens"),
+                            OutputTokens = UsageJson.Long(u, "completion_tokens"),
+                        });
                         var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message")
                             .GetProperty("content").GetString() ?? "";
                         return SelectionPrompt.ParseResponse(content);
@@ -183,8 +215,10 @@ namespace CodeGlyph.Selectors
         }
     }
 
-    public sealed class ClaudeCliSelector : IIconSelector
+    public sealed class ClaudeCliSelector : IIconSelector, IReportsUsage
     {
+        public Action<SelectorUsage>? UsageReported { get; set; }
+
         private static readonly SemaphoreSlim OneAtATime = new SemaphoreSlim(1, 1);
         private readonly string _path;
         private readonly string _model;
@@ -250,6 +284,15 @@ namespace CodeGlyph.Selectors
 
                         using (var doc = JsonDocument.Parse(output))
                         {
+                            var u = UsageJson.Obj(doc.RootElement, "usage");
+                            UsageReported?.Invoke(new SelectorUsage
+                            {
+                                InputTokens = UsageJson.Long(u, "input_tokens"),
+                                OutputTokens = UsageJson.Long(u, "output_tokens"),
+                                CacheReadTokens = UsageJson.Long(u, "cache_read_input_tokens"),
+                                CacheWriteTokens = UsageJson.Long(u, "cache_creation_input_tokens"),
+                                CostUsd = UsageJson.Double(doc.RootElement, "total_cost_usd"),
+                            });
                             var result = doc.RootElement.TryGetProperty("result", out var r) ? r.GetString() ?? "" : output;
                             return SelectionPrompt.ParseResponse(result);
                         }

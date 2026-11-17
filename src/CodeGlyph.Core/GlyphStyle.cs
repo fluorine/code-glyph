@@ -29,6 +29,7 @@ namespace CodeGlyph
         public double MinSize { get; init; } = 48;
         public double MarginToCode { get; init; } = 24;
         public double MarginToEdge { get; init; } = 24;
+        public bool AllowOverCode { get; init; } = true;
         public bool ShowForTypes { get; init; } = true;
         public bool ShowForMethods { get; init; } = true;
         public bool ShowForProperties { get; init; } = true;

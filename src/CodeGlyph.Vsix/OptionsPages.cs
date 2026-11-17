@@ -26,6 +26,16 @@ namespace CodeGlyph.Vsix
         [Description("The model must be at least this sure (0 to 1). Higher values show fewer icons.")]
         public double MinConfidence { get; set; } = 0.7;
 
+        [Category("General")]
+        [DisplayName("Wait after editing (seconds)")]
+        [Description("Provider calls for new or changed symbols wait this long after your last edit. Cached icons are not delayed. 0 to 600.")]
+        public int EditDelaySeconds { get; set; } = 15;
+
+        [Category("General")]
+        [DisplayName("Log usage")]
+        [Description("Writes tokens, cost and session totals to the CodeGlyph Output pane after each provider call.")]
+        public bool LogUsage { get; set; } = true;
+
         [Category("Claude API")]
         [DisplayName("API key")]
         [Description("Stored encrypted for your Windows user. If empty, ANTHROPIC_API_KEY is used.")]
@@ -63,6 +73,8 @@ namespace CodeGlyph.Vsix
         {
             var s = GlyphServices.Settings;
             Enabled = s.Enabled;
+            EditDelaySeconds = s.EditDelaySeconds;
+            LogUsage = s.LogUsage;
             MinConfidence = s.Style.MinConfidence;
             Provider = s.Provider.Provider;
             AnthropicKey = s.Provider.AnthropicKey ?? "";
@@ -79,6 +91,8 @@ namespace CodeGlyph.Vsix
             GlyphServices.Update(s =>
             {
                 s.Enabled = Enabled;
+                s.EditDelaySeconds = System.Math.Max(0, System.Math.Min(600, EditDelaySeconds));
+                s.LogUsage = LogUsage;
                 s.Style = s.Style with { MinConfidence = System.Math.Max(0, System.Math.Min(1, MinConfidence)) };
                 s.Provider = new ProviderSettings
                 {
@@ -149,6 +163,10 @@ namespace CodeGlyph.Vsix
         [Category("Layout")] [DisplayName("Margin to edge (px)")]
         public int MarginToEdge { get; set; } = 24;
 
+        [Category("Layout")] [DisplayName("Allow icon behind code")]
+        [Description("True: the icon sits behind the text, always visible, no scrolling. False: the icon uses only free space right of the code.")]
+        public bool AllowOverCode { get; set; } = true;
+
         [Category("Show for")] [DisplayName("Types")]
         public bool ShowForTypes { get; set; } = true;
 
@@ -179,6 +197,7 @@ namespace CodeGlyph.Vsix
             MinSize = (int)s.MinSize;
             MarginToCode = (int)s.MarginToCode;
             MarginToEdge = (int)s.MarginToEdge;
+            AllowOverCode = s.AllowOverCode;
             ShowForTypes = s.ShowForTypes;
             ShowForMethods = s.ShowForMethods;
             ShowForProperties = s.ShowForProperties;
@@ -206,6 +225,7 @@ namespace CodeGlyph.Vsix
                     MinSize = Clamp(MinSize, 16, 600),
                     MarginToCode = Clamp(MarginToCode, 0, 400),
                     MarginToEdge = Clamp(MarginToEdge, 0, 400),
+                    AllowOverCode = AllowOverCode,
                     ShowForTypes = ShowForTypes,
                     ShowForMethods = ShowForMethods,
                     ShowForProperties = ShowForProperties,

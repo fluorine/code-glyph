@@ -22,6 +22,7 @@ namespace CodeGlyph
         private readonly Func<GlyphStyle> _style;
         private readonly Action<string> _log;
         private readonly Func<DateTime> _now;
+        private readonly Func<bool> _logUsage;
         private readonly object _gate = new object();
         private readonly HashSet<string> _inFlight = new HashSet<string>();
         private DateTime _blockedUntil = DateTime.MinValue;
@@ -30,8 +31,10 @@ namespace CodeGlyph
 
         public SelectionPipeline(
             IconCatalog catalog, IconCache cache, Func<IIconSelector?> selector,
-            Func<GlyphStyle> style, Action<string> log, Func<DateTime>? now = null)
+            Func<GlyphStyle> style, Action<string> log, Func<DateTime>? now = null,
+            Func<bool>? logUsage = null)
         {
+            _logUsage = logUsage ?? (() => true);
             _catalog = catalog;
             _cache = cache;
             _selector = selector;
@@ -42,6 +45,8 @@ namespace CodeGlyph
 
         /// <summary>Raised after new answers are cached, so views can draw again.</summary>
         public event Action? Resolved;
+
+        public UsageTracker Usage { get; } = new UsageTracker();
 
         public string KeyOf(SymbolDescriptor d) => d.Key(_catalog.Version, SelectionPrompt.Version);
 
@@ -101,7 +106,11 @@ namespace CodeGlyph
                     var batch = pending.Skip(i).Take(BatchSize).ToList();
                     try
                     {
+                        SelectorUsage? usage = null;
+                        if (selector is IReportsUsage reporter) reporter.UsageReported = u => usage = u;
                         var answers = await selector.SelectAsync(_systemPrompt, batch, ct).ConfigureAwait(false);
+                        var line = Usage.Add(selector.Name, batch.Count, usage);
+                        if (_logUsage()) _log(line + ". " + Usage.Summary());
                         anyCached |= Apply(batch, keyById, answers);
                         _backoff = TimeSpan.Zero;
                     }
