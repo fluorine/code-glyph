@@ -20,7 +20,7 @@ You can also download the `.vsix` file from the [releases page](https://github.c
 
 ## VS Code version
 
-The folder [scode/](vscode) holds a VS Code extension. It works with any language that has a language extension with symbols (TypeScript, Python, Go, Java, Rust, C# and more). It uses the same icon set, rules and cache design. See [scode/README.md](vscode/README.md).
+The folder [vscode/](vscode) holds a VS Code extension. [Install it from the Marketplace](https://marketplace.visualstudio.com/items?itemName=fluorinestudios.codeglyph-vscode), or search for "CodeGlyph" in the Extensions view. It works with any language that has a language extension with symbols (TypeScript, Python, Go, Java, Rust, C# and more). It uses the same icon set, rules and cache design. See [vscode/README.md](vscode/README.md).
 
 The Visual Studio extension in src/ stays C# only.
 
