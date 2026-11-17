@@ -4,6 +4,10 @@ CodeGlyph draws one subtle icon behind your code, next to each function, class a
 
 This project is vibed. An AI assistant wrote most of the code, and a person reviews and tests it. Expect rough edges.
 
+## Install
+
+[Install CodeGlyph from the Marketplace](https://marketplace.visualstudio.com/items?itemName=fluorinestudios.codeglyph-vscode), or open the Extensions view in VS Code (Ctrl+Shift+X) and search for "CodeGlyph".
+
 ## Rules
 
 - The icon sits behind the text. It never hides code or selection.
