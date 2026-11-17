@@ -4,11 +4,11 @@ CodeGlyph is a Visual Studio extension. It draws one subtle icon behind the code
 right of each C# class, method and property. The icon shows what the symbol does, for
 example orders, email, queues or security. The icon is a reading guide.
 
-## Vibed, and proud of it
+<img width="1274" height="739" alt="image" src="https://github.com/user-attachments/assets/f7df9448-0993-40ee-9772-6b62d56058cb" />
 
-This project is vibed. A person described the idea, and an AI coding assistant
-(Claude Code) wrote most of the code. The person reviews, tests and steers.
-Expect rough edges. Pull requests and bug reports are welcome.
+This project is vibed. Expect rough edges. Pull requests and bug reports are welcome.
+
+https://github.com/user-attachments/assets/8d75d32d-9804-46a0-9564-79297f83e0fe
 
 ## Rules
 
@@ -43,8 +43,8 @@ sticky or scrolling behavior, size limits, margins, and the symbol kinds to show
 
 ## Similar tools
 
-No tool found draws a semantic icon per symbol behind the code. These tools are the closest.
-This list comes from web search results. The status of each tool was not checked in detail.
+So far, no other tool found draws a semantic icon per symbol behind the code. These tools are the closest.
+The status of each tool was not checked in detail.
 
 **Background images in the editor (decoration, not meaning)**
 
