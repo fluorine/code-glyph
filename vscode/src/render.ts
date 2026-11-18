@@ -83,7 +83,8 @@ export class GlyphRenderer {
     return t;
   }
 
-  render(editor: vscode.TextEditor, syms: Sym[], cfg: RenderConfig): boolean {
+  /** lensLines are lines with a CodeLens above them. Each adds a row of lensPx pixels inside the icon. */
+  render(editor: vscode.TextEditor, syms: Sym[], cfg: RenderConfig, lensLines: ReadonlySet<number> = new Set(), lensPx = 16): boolean {
     if (!cfg.enabled) { this.clear(editor); return true; }
     if (this.types.size > MAX_TYPES) return false;
 
@@ -98,8 +99,15 @@ export class GlyphRenderer {
       if (!def) continue;
       const box = layout(s.band, cfg.minLines, cfg.maxLines, cfg.verticalAlignment);
       if (!box) continue;
+      const gapsBefore: number[] = [];
+      let gaps = 0;
+      for (let k = 0; k < box.sizeLines; k++) {
+        if (k > 0 && lensLines.has(box.startLine + k)) gaps++;
+        gapsBefore.push(gaps);
+      }
+      const height = box.sizeLines + gaps;
       const width = maxLineWidth(lines, box.startLine, box.startLine + box.sizeLines - 1, tabSize);
-      const col = columnFor(width, box.sizeLines, cfg);
+      const col = columnFor(width, height, cfg);
       if (col === undefined) continue;
 
       const fadeKey = [doc.uri.toString(), s.descriptor.kind, s.descriptor.container, s.descriptor.name, icon].join('|');
@@ -114,13 +122,20 @@ export class GlyphRenderer {
       for (let k = 0; k < box.sizeLines; k++) {
         const line = box.startLine + k;
         if (line >= doc.lineCount) break;
-        const key = [icon, color, cfg.opacity, cfg.strokeWidth, cfg.renderStyle, box.sizeLines, k, col, fading ? cfg.fadeInMs : 0].join('|');
+        // A line with a CodeLens above it also paints the CodeLens row, so the icon has no hole.
+        // That row is lensPx pixels high. It is shorter than a code line, so lines and rows add up separately.
+        const fillsGap = k > 0 && lensLines.has(line);
+        const rowsAbove = fillsGap ? gapsBefore[k] - 1 : gapsBefore[k];
+        const key = [icon, color, cfg.opacity, cfg.strokeWidth, cfg.renderStyle, box.sizeLines, gaps, k, rowsAbove, fillsGap, lensPx, col, fading ? cfg.fadeInMs : 0].join('|');
+        const size = `(${box.sizeLines} * 1lh + ${gaps} * ${lensPx}px)`;
         const type = this.typeFor(key, () => ({
           isWholeLine: true,
           // The value is injected as raw CSS. It gives the line a background image and nothing else.
           // The fade variant also adds one animation. The keyframes sit after the closing brace.
           backgroundColor: `transparent;background-image:url("${uri}");background-repeat:no-repeat;`
-            + `background-size:${box.sizeLines}lh ${box.sizeLines}lh;background-position:${col}ch calc(-${k} * 1lh)`
+            + (fillsGap ? `top:-${lensPx}px;height:calc(1lh + ${lensPx}px)!important;` : '')
+            + `background-size:calc${size} calc${size};`
+            + `background-position:min(${col}ch,calc(100% - ${size} - 2ch)) calc(-${k} * 1lh - ${rowsAbove} * ${lensPx}px)`
             + (fading
               ? `;animation:codeglyph-fade ${cfg.fadeInMs}ms ease-out both}`
                 + '@keyframes codeglyph-fade{from{opacity:0}to{opacity:1}}.codeglyph-unused{color:inherit'

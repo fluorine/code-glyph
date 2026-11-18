@@ -85,13 +85,41 @@ export function activate(context: vscode.ExtensionContext): void {
     return !cfg().get<string[]>('excludedLanguages', []).includes(doc.languageId);
   };
 
+  const lensLines = new Map<string, Set<number>>();
+  const lastLensCount = new Map<string, number>();
+
+  // Height in pixels of the row VS Code adds above a line for a CodeLens. It follows the editor's own rule.
+  const lensRowPx = (doc: vscode.TextDocument): number => {
+    const c = vscode.workspace.getConfiguration('editor', doc);
+    const fontSize = c.get<number>('fontSize', 14);
+    const configured = c.get<number>('lineHeight', 0);
+    const lineHeight = configured === 0 ? Math.round(1.35 * fontSize) : configured < 8 ? Math.round(configured * fontSize) : configured;
+    const lensFont = c.get<number>('codeLensFontSize', 0);
+    const size = lensFont >= 5 ? lensFont : Math.floor(fontSize * 0.9);
+    return Math.floor(size * Math.max(1.3, lineHeight / fontSize));
+  };
+
   const render = (editor: vscode.TextEditor) => {
     if (!services) return;
-    const syms = parsed.get(editor.document.uri.toString()) ?? [];
-    if (!services.renderer.render(editor, syms, renderConfig())) {
+    const draw = (e: vscode.TextEditor) => services!.renderer.render(
+      e, parsed.get(e.document.uri.toString()) ?? [], renderConfig(), lensLines.get(e.document.uri.toString()), lensRowPx(e.document));
+    if (!draw(editor)) {
       services.renderer.reset();
-      for (const e of vscode.window.visibleTextEditors) services.renderer.render(e, parsed.get(e.document.uri.toString()) ?? [], renderConfig());
+      for (const e of vscode.window.visibleTextEditors) draw(e);
     }
+  };
+
+  // Each CodeLens adds a row above its line. The icon must include it, or it looks broken.
+  const readLensLines = async (doc: vscode.TextDocument): Promise<Set<number>> => {
+    const lines = new Set<number>();
+    if (!vscode.workspace.getConfiguration('editor', doc).get('codeLens', true)) return lines;
+    try {
+      const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>('vscode.executeCodeLensProvider', doc.uri);
+      for (const l of lenses ?? []) lines.add(l.range.start.line);
+    } catch {
+      // No CodeLens provider.
+    }
+    return lines;
   };
 
   const renderAll = () => { for (const e of vscode.window.visibleTextEditors) render(e); };
@@ -107,7 +135,16 @@ export function activate(context: vscode.ExtensionContext): void {
       }, cfg().get('minSymbolLines', 4));
       if (!parsed.has(key)) log(`${doc.fileName.split(/[\\/]/).pop()}: ${syms.length} symbols`);
       parsed.set(key, syms);
+      const lenses = await readLensLines(doc);
+      lensLines.set(key, lenses);
+      if (lenses.size !== (lastLensCount.get(key) ?? -1)) { lastLensCount.set(key, lenses.size); log(`${doc.fileName.split(/[\/]/).pop()}: ${lenses.size} CodeLens lines`); }
       for (const e of vscode.window.visibleTextEditors) if (e.document === doc) render(e);
+
+      // CodeLens providers are often slow to start. Look again when none showed up.
+      const lensWanted = vscode.workspace.getConfiguration('editor', doc).get('codeLens', true);
+      if (syms.length && lensWanted && !lenses.size && attempt < 3) {
+        setTimeout(() => void scan(doc, true, attempt + 1), [3000, 10000, 30000][attempt]);
+      }
 
       // A language server may need time to start. Try a few more times when it gave nothing.
       if (!syms.length && attempt < 5 && doc.lineCount > 4) {
@@ -136,7 +173,7 @@ export function activate(context: vscode.ExtensionContext): void {
       clearTimeout(scanTimers.get(key));
       scanTimers.set(key, setTimeout(() => void scan(ev.document, false), 500));
     }),
-    vscode.workspace.onDidCloseTextDocument(d => { parsed.delete(d.uri.toString()); }),
+    vscode.workspace.onDidCloseTextDocument(d => { parsed.delete(d.uri.toString()); lensLines.delete(d.uri.toString()); }),
     // Diagnostics arrive when a language server is ready. Scan again for files that had no symbols.
     vscode.languages.onDidChangeDiagnostics(ev => {
       for (const uri of ev.uris) {
