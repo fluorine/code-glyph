@@ -167,6 +167,40 @@ describe('pipeline', () => {
     expect(logs[0]).toContain('in 10, out 2 tokens');
     expect(p.usage.summary()).toContain('1 calls');
   });
+  it('asks again for a missing answer before it stores none', async () => {
+    let call = 0;
+    const f = new Fake(ids => { call++; return ids.filter(id => call > 1 || id === '0').map(id => ({ id, icon: 'mail', confidence: 0.95 })); });
+    const p = makePipeline(() => f);
+    const a = desc({ name: 'A' }), b = desc({ name: 'B' });
+    await p.resolve([a, b]);
+    expect(f.calls).toBe(2);
+    expect([p.lookup(a), p.lookup(b)]).toEqual(['mail', 'mail']);
+  });
+  it('stores none when the retry still has no answer for the symbol', async () => {
+    const f = new Fake(ids => [
+      ...ids.filter(id => id === '0').map(id => ({ id, icon: 'mail', confidence: 0.95 })),
+      { id: '99', icon: null, confidence: 0 },
+    ]);
+    const p = makePipeline(() => f);
+    const a = desc({ name: 'A' }), b = desc({ name: 'B' });
+    await p.resolve([a, b]);
+    await p.resolve([a, b]);
+    expect(f.calls).toBe(2);
+    expect(p.lookup(b)).toBeNull();
+  });
+  it('does not cache none when the reply is empty', async () => {
+    let n = 0;
+    const empty: Selector = { name: 'empty', async select() { n++; return { answers: [], usage: emptyUsage() }; } };
+    const logs: string[] = [];
+    const p = makePipeline(() => empty, logs);
+    const a = desc();
+    await p.resolve([a]);
+    expect(p.lookup(a)).toBeNull();
+    expect(p.shouldRequest(a)).toBe(true);
+    expect(logs.join('\n')).toContain('no usable answers');
+    expect(logs.join('\n')).toContain('Retry in 30 s');
+    expect(n).toBe(1);
+  });
   it('removes in-flight keys when the provider is missing', async () => {
     let sel: Selector | undefined;
     const p = makePipeline(() => sel);
@@ -184,5 +218,43 @@ describe('provider choice', () => {
     expect(createSelector({ ...base }, { OPENAI_API_KEY: 'k' })!.name).toContain('OpenAI');
     expect(createSelector({ ...base }, {})!.name).toContain('Claude CLI');
     expect(createSelector({ ...base, provider: 'anthropic' }, {})).toBeUndefined();
+  });
+});
+
+describe('cache pruning', () => {
+  const DAY = 86_400_000;
+  it('removes entries unused for 90 days and keeps used ones', async () => {
+    const { mkdtempSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'cg-'));
+    const path = join(dir, 'c.json');
+    try {
+      let now = Date.UTC(2026, 0, 1);
+      const c = new IconCache(path, () => now);
+      c.set('old', 'mail', 0.9);
+      c.set('keep', 'mail', 0.9);
+      c.save();
+      now += 60 * DAY;
+      c.get('keep');
+      c.save();
+      now += 40 * DAY;
+      const again = new IconCache(path, () => now);
+      expect(again.get('old')).toBeUndefined();
+      expect(again.get('keep')?.icon).toBe('mail');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+  it('gives old files without dates the current day', async () => {
+    const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'cg-'));
+    const path = join(dir, 'c.json');
+    try {
+      writeFileSync(path, JSON.stringify({ k: { icon: 'mail', confidence: 0.9 } }));
+      expect(new IconCache(path).get('k')?.icon).toBe('mail');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

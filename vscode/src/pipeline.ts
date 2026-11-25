@@ -76,10 +76,12 @@ export class SelectionPipeline {
         if (signal?.aborted) break;
         const batch = pending.slice(i, i + BATCH);
         try {
-          const { answers, usage } = await selector.select(this.system, batch, signal);
-          const line = this.usage.add(selector.name, batch.length, usage ?? emptyUsage());
-          if (this.o.logUsage()) this.o.log(line + '. ' + this.usage.summary());
-          changed = this.apply(batch, keyById, answers) || changed;
+          const missed = this.apply(batch, keyById, await this.ask(selector, batch, signal), false);
+          changed = missed.length < batch.length || changed;
+          if (missed.length) {
+            this.apply(missed, keyById, await this.ask(selector, missed, signal), true);
+            changed = true;
+          }
           this.backoffSec = 0;
         } catch (e) {
           this.backoffSec = this.backoffSec === 0 ? 30 : Math.min(600, this.backoffSec * 2);
@@ -97,12 +99,23 @@ export class SelectionPipeline {
     }
   }
 
-  private apply(batch: Request[], keyById: Map<string, string>, answers: { id: string; icon: string | null; confidence: number }[]): boolean {
+  private async ask(selector: Selector, batch: Request[], signal?: AbortSignal) {
+    const { answers, usage } = await selector.select(this.system!, batch, signal);
+    const line = this.usage.add(selector.name, batch.length, usage ?? emptyUsage());
+    if (this.o.logUsage()) this.o.log(line + '. ' + this.usage.summary());
+    // An empty reply is a damaged reply. It must not become a cached "none".
+    if (!answers.length) throw new Error('The reply had no usable answers.');
+    return answers;
+  }
+
+  /** A request with no answer is cached as "none" only when final. Otherwise it is returned. */
+  private apply(batch: Request[], keyById: Map<string, string>, answers: { id: string; icon: string | null; confidence: number }[], final: boolean): Request[] {
     const min = this.o.minConfidence();
     const byId = new Map(answers.map(a => [a.id, a] as const));
+    const missed: Request[] = [];
     for (const r of batch) {
-      // A missing answer is stored as "none". The model skipped it, so asking again gives the same result.
       const a = byId.get(r.id);
+      if (!a && !final) { missed.push(r); continue; }
       let icon: string | null = null;
       let confidence = 0;
       if (a?.icon && this.catalog.has(a.icon) && a.confidence >= min && !(a.confidence < 0.9 && GENERIC_ICONS.includes(a.icon))) {
@@ -111,7 +124,7 @@ export class SelectionPipeline {
       }
       this.cache.set(keyById.get(r.id)!, icon, confidence);
     }
-    return batch.length > 0;
+    return missed;
   }
 
   private release(keys: Map<string, string>): void {

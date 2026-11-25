@@ -132,7 +132,9 @@ export class GlyphRenderer {
           isWholeLine: true,
           // The value is injected as raw CSS. It gives the line a background image and nothing else.
           // The fade variant also adds one animation. The keyframes sit after the closing brace.
+          // The font must match the editor, or the ch unit gives a different column.
           backgroundColor: `transparent;background-image:url("${uri}");background-repeat:no-repeat;`
+            + 'font-family:var(--vscode-editor-font-family);font-size:var(--vscode-editor-font-size);'
             + (fillsGap ? `top:-${lensPx}px;height:calc(1lh + ${lensPx}px)!important;` : '')
             + `background-size:calc${size} calc${size};`
             + `background-position:min(${col}ch,calc(100% - ${size} - 2ch)) calc(-${k} * 1lh - ${rowsAbove} * ${lensPx}px)`

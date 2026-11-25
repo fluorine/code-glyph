@@ -139,6 +139,34 @@ public class CacheTests
     }
 
     [Fact]
+    public void RemovesEntriesUnusedForNinetyDays()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "codeglyph-test-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var day = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            using (var cache = new IconCache(path, () => day))
+            {
+                cache.Set("old", "mail", 0.9);
+                cache.Set("keep", "mail", 0.9);
+                cache.Save();
+                day = day.AddDays(60);
+                Assert.True(cache.TryGet("keep", out _));
+                cache.Save();
+            }
+            day = day.AddDays(40);
+
+            using var again = new IconCache(path, () => day);
+            Assert.False(again.TryGet("old", out _));
+            Assert.True(again.TryGet("keep", out _));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void DamagedFileGivesEmptyCache()
     {
         var path = Path.Combine(Path.GetTempPath(), "codeglyph-test-" + Guid.NewGuid().ToString("N") + ".json");
@@ -277,6 +305,52 @@ public class PipelineTests
 
         Assert.Equal(1, fake.Calls);
         Assert.Contains(log, l => l.Contains("boom"));
+    }
+
+    [Fact]
+    public async Task MissingAnswerIsAskedAgainBeforeItIsNone()
+    {
+        var (pipeline, fake, _) = Make();
+        fake.Answer = reqs => reqs
+            .Where(r => fake.Calls > 1 || r.Id == "0")
+            .Select(r => new IconSelection(r.Id, "mail", 0.95)).ToList();
+        var a = Sym("A"); var b = Sym("B");
+
+        await pipeline.ResolveAsync(new[] { a, b }, default);
+
+        Assert.Equal(2, fake.Calls);
+        Assert.Equal("mail", pipeline.Lookup(a)?.Name);
+        Assert.Equal("mail", pipeline.Lookup(b)?.Name);
+    }
+
+    [Fact]
+    public async Task StillMissingAfterRetryIsCachedAsNone()
+    {
+        var (pipeline, fake, _) = Make();
+        fake.Answer = reqs => reqs
+            .Where(r => r.Id == "0").Select(r => new IconSelection(r.Id, "mail", 0.95))
+            .Append(new IconSelection("99", null, 0)).ToList();
+        var a = Sym("A"); var b = Sym("B");
+
+        await pipeline.ResolveAsync(new[] { a, b }, default);
+        await pipeline.ResolveAsync(new[] { a, b }, default);
+
+        Assert.Equal(2, fake.Calls);
+        Assert.Null(pipeline.Lookup(b));
+    }
+
+    [Fact]
+    public async Task EmptyReplyIsNotCachedAsNone()
+    {
+        var (pipeline, fake, log) = Make();
+        var a = Sym("A");
+
+        await pipeline.ResolveAsync(new[] { a }, default);
+
+        Assert.Equal(1, fake.Calls);
+        Assert.Contains(log, l => l.Contains("no usable answers"));
+        Assert.Null(pipeline.Lookup(a));
+        Assert.True(pipeline.ShouldRequest(a));
     }
 
     [Fact]

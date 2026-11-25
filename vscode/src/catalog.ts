@@ -34,12 +34,12 @@ export interface SvgOptions { color: string; opacity: number; strokeWidth: numbe
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-/** Lucide uses only path, circle, ellipse, rect, line, polyline and polygon on a 24 grid. */
+/** Lucide uses only path, circle, ellipse, rect, line, polyline and polygon on a 24 grid. strokeWidth is in pixels at any icon size. */
 export function iconToSvg(icon: IconDef, o: SvgOptions): string {
   const allowed = new Set(['path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon']);
   const body = icon.e
     .filter(el => allowed.has(el.k))
-    .map(el => '<' + el.k + Object.entries(el.a).map(([k, v]) => ` ${esc(k)}="${esc(v)}"`).join('') + '/>')
+    .map(el => '<' + el.k + Object.entries(el.a).map(([k, v]) => ` ${esc(k)}="${esc(v)}"`).join('') + ' vector-effect="non-scaling-stroke"/>')
     .join('');
   const fill = o.filled ? `fill="${o.color}" fill-opacity="0.5"` : 'fill="none"';
   // Opacity sits on the group. Per-path opacity makes crossing paths look brighter.

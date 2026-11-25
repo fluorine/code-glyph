@@ -106,12 +106,15 @@ namespace CodeGlyph
                     var batch = pending.Skip(i).Take(BatchSize).ToList();
                     try
                     {
-                        SelectorUsage? usage = null;
-                        if (selector is IReportsUsage reporter) reporter.UsageReported = u => usage = u;
-                        var answers = await selector.SelectAsync(_systemPrompt, batch, ct).ConfigureAwait(false);
-                        var line = Usage.Add(selector.Name, batch.Count, usage);
-                        if (_logUsage()) _log(line + ". " + Usage.Summary());
-                        anyCached |= Apply(batch, keyById, answers);
+                        var answers = await AskAsync(selector, batch, ct).ConfigureAwait(false);
+                        var missed = Apply(batch, keyById, answers, final: false);
+                        anyCached |= missed.Count < batch.Count;
+                        if (missed.Count > 0)
+                        {
+                            var again = await AskAsync(selector, missed, ct).ConfigureAwait(false);
+                            Apply(missed, keyById, again, final: true);
+                            anyCached = true;
+                        }
                         _backoff = TimeSpan.Zero;
                     }
                     catch (OperationCanceledException)
@@ -140,15 +143,31 @@ namespace CodeGlyph
             }
         }
 
-        private bool Apply(List<SelectionRequest> batch, Dictionary<string, string> keyById, IReadOnlyList<IconSelection> answers)
+        private async Task<IReadOnlyList<IconSelection>> AskAsync(IIconSelector selector, List<SelectionRequest> batch, CancellationToken ct)
+        {
+            SelectorUsage? usage = null;
+            if (selector is IReportsUsage reporter) reporter.UsageReported = u => usage = u;
+            var answers = await selector.SelectAsync(_systemPrompt!, batch, ct).ConfigureAwait(false);
+            var line = Usage.Add(selector.Name, batch.Count, usage);
+            if (_logUsage()) _log(line + ". " + Usage.Summary());
+            // An empty reply is a damaged reply. It must not become a cached "none".
+            if (answers.Count == 0) throw new InvalidOperationException("The reply had no usable answers.");
+            return answers;
+        }
+
+        /// <summary>Caches each answer. A request with no answer is cached as "none" only when final, else it is returned.</summary>
+        private List<SelectionRequest> Apply(List<SelectionRequest> batch, Dictionary<string, string> keyById, IReadOnlyList<IconSelection> answers, bool final)
         {
             var min = _style().MinConfidence;
             var byId = answers.GroupBy(a => a.Id).ToDictionary(g => g.Key, g => g.First());
-            var any = false;
+            var missed = new List<SelectionRequest>();
             foreach (var request in batch)
             {
-                // A missing answer is stored as "none". The model skipped the symbol, so asking again would give the same result.
-                byId.TryGetValue(request.Id, out var answer);
+                if (!byId.TryGetValue(request.Id, out var answer) && !final)
+                {
+                    missed.Add(request);
+                    continue;
+                }
                 string? icon = null;
                 var confidence = 0.0;
                 if (answer != null && answer.Icon != null
@@ -160,9 +179,8 @@ namespace CodeGlyph
                     confidence = answer.Confidence;
                 }
                 _cache.Set(keyById[request.Id], icon, confidence);
-                any = true;
             }
-            return any;
+            return missed;
         }
 
         private static bool IsGeneric(string icon, double confidence) =>

@@ -57,7 +57,7 @@
         },
         "codeglyph.opacity": { "type": "number", "default": 0.08, "minimum": 0.01, "maximum": 0.5 },
         "codeglyph.renderStyle": { "type": "string", "default": "outline", "enum": [ "outline", "filled" ] },
-        "codeglyph.strokeWidth": { "type": "number", "default": 2, "minimum": 0.5, "maximum": 4 },
+        "codeglyph.strokeWidth": { "type": "number", "default": 2, "minimum": 0.5, "maximum": 6, "description": "Line width in pixels. It stays the same at every icon size." },
         "codeglyph.placement": {
           "type": "string", "default": "fixedColumn", "enum": [ "fixedColumn", "afterCode" ],
           "markdownDescription": "`fixedColumn` puts the icon at `#codeglyph.column#`, behind long lines. `afterCode` puts it right of the longest line of the symbol."
