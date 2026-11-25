@@ -9,6 +9,8 @@ export interface Descriptor {
   container: string;
   /** Last two folder names of the file. A hint only. It is part of the cache key. */
   folder?: string;
+  /** Full file path. It finds .codeglyph.json. It is not in the key and never goes to the model. */
+  path?: string;
   language: string;
   lineCount: number;
   signature: string;

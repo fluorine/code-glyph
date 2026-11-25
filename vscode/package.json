@@ -20,9 +20,22 @@
       { "command": "codeglyph.toggle", "title": "CodeGlyph: Toggle icons" },
       { "command": "codeglyph.clearCache", "title": "CodeGlyph: Clear icon cache" },
       { "command": "codeglyph.showUsage", "title": "CodeGlyph: Show usage" },
+      { "command": "codeglyph.changeIcon", "title": "CodeGlyph: Change icon of symbol at cursor..." },
+      { "command": "codeglyph.hideIcon", "title": "CodeGlyph: Hide icon of symbol at cursor" },
+      { "command": "codeglyph.useAutomaticIcon", "title": "CodeGlyph: Use automatic icon for symbol at cursor" },
+      { "command": "codeglyph.openOverrides", "title": "CodeGlyph: Open .codeglyph.json" },
+      { "command": "codeglyph.revealSymbol", "title": "CodeGlyph: Go to symbol" },
       { "command": "codeglyph.setAnthropicKey", "title": "CodeGlyph: Set Claude API key" },
       { "command": "codeglyph.setOpenAiKey", "title": "CodeGlyph: Set OpenAI API key" }
     ],
+    "views": { "explorer": [ { "id": "codeglyph.map", "name": "CodeGlyph" } ] },
+    "menus": {
+      "commandPalette": [ { "command": "codeglyph.revealSymbol", "when": "false" } ],
+      "view/item/context": [
+        { "command": "codeglyph.changeIcon", "when": "view == codeglyph.map && viewItem == glyph", "group": "1_edit@1" },
+        { "command": "codeglyph.hideIcon", "when": "view == codeglyph.map && viewItem == glyph", "group": "1_edit@2" }
+      ]
+    },
     "configuration": {
       "title": "CodeGlyph",
       "properties": {
@@ -38,6 +51,7 @@
         "codeglyph.claudeCliModel": { "type": "string", "default": "haiku" },
         "codeglyph.minConfidence": { "type": "number", "default": 0.7, "minimum": 0, "maximum": 1, "description": "The model must be at least this sure. Higher values show fewer icons." },
         "codeglyph.editDelaySeconds": { "type": "number", "default": 15, "minimum": 0, "maximum": 600, "description": "Provider calls for new or changed symbols wait this long after your last edit. Cached icons are not delayed." },
+        "codeglyph.useLocalWords": { "type": "boolean", "default": true, "description": "Pick the icon with no model call when the name has known words like Email, Invoice or Order. Turn it off to let the model decide every name." },
         "codeglyph.logUsage": { "type": "boolean", "default": true, "description": "Write tokens and cost for each provider call to the CodeGlyph output channel." },
         "codeglyph.excludedLanguages": {
           "type": "array", "items": { "type": "string" },
@@ -49,7 +63,7 @@
           "default": [ "types", "methods", "properties" ], "description": "Symbol kinds that get icons."
         },
         "codeglyph.minSymbolLines": { "type": "integer", "default": 4, "minimum": 1, "description": "Symbols shorter than this get no icon." },
-        "codeglyph.colorMode": { "type": "string", "default": "theme", "enum": [ "theme", "custom", "bySymbolKind" ] },
+        "codeglyph.colorMode": { "type": "string", "default": "theme", "enum": [ "theme", "custom", "bySymbolKind", "byIcon" ], "enumDescriptions": [ "Follow the editor theme.", "Use codeglyph.customColor.", "One color for types, methods and properties.", "Each icon name gets its own stable color, so equal concepts have equal colors in all files." ] },
         "codeglyph.customColor": { "type": "string", "default": "#808080" },
         "codeglyph.kindColors": {
           "type": "object", "default": { "types": "#4EC9B0", "methods": "#DCDCAA", "properties": "#9CDCFE" },
@@ -67,6 +81,7 @@
         "codeglyph.verticalAlignment": { "type": "string", "default": "center", "enum": [ "top", "center", "bottom" ] },
         "codeglyph.minLines": { "type": "integer", "default": 4, "minimum": 2, "description": "Smallest icon height in lines. If the free lines are fewer, no icon is shown." },
         "codeglyph.fadeInMs": { "type": "integer", "default": 700, "minimum": 0, "maximum": 5000, "description": "An icon fades in softly when it first appears. 0 turns the fade off." },
+        "codeglyph.hover": { "type": "boolean", "default": true, "description": "Show where the icon came from when you hover the first line of a symbol. The hover has links to change or hide the icon." },
         "codeglyph.verbBadges": { "type": "boolean", "default": true, "description": "Show a small badge for the first word of a method name: Create, Delete, Get, Send, Validate, Update, Sync." },
         "codeglyph.maxLines": { "type": "integer", "default": 10, "minimum": 2, "description": "Largest icon height in lines." }
       }

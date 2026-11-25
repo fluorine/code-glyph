@@ -17,6 +17,9 @@ namespace CodeGlyph
 
         /// <summary>Last two folder names of the file. A weak hint. It is part of the key.</summary>
         public string Folder { get; set; } = "";
+
+        /// <summary>Full file path. It finds .codeglyph.json. It is not in the key and never goes to the model.</summary>
+        public string Path { get; set; } = "";
         public int LineCount { get; set; }
         public string Summary { get; set; } = "";
         public string Comments { get; set; } = "";

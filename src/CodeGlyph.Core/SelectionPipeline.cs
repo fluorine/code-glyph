@@ -24,6 +24,7 @@ namespace CodeGlyph
         private readonly Func<DateTime> _now;
         private readonly Func<bool> _logUsage;
         private readonly Glossary? _glossary;
+        private readonly OverrideStore? _overrides;
         private readonly object _gate = new object();
         private readonly HashSet<string> _inFlight = new HashSet<string>();
         private DateTime _blockedUntil = DateTime.MinValue;
@@ -33,9 +34,10 @@ namespace CodeGlyph
         public SelectionPipeline(
             IconCatalog catalog, IconCache cache, Func<IIconSelector?> selector,
             Func<GlyphStyle> style, Action<string> log, Func<DateTime>? now = null,
-            Func<bool>? logUsage = null, Glossary? glossary = null)
+            Func<bool>? logUsage = null, Glossary? glossary = null, OverrideStore? overrides = null)
         {
             _glossary = glossary;
+            _overrides = overrides;
             _logUsage = logUsage ?? (() => true);
             _catalog = catalog;
             _cache = cache;
@@ -55,22 +57,33 @@ namespace CodeGlyph
         /// <summary>The icon to draw now, or null for none or not yet known.</summary>
         public IconDefinition? Lookup(SymbolDescriptor d)
         {
+            if (HasOverride(d, out var overrideIcon)) return overrideIcon;
             var local = LocalIcon(d);
             if (local != null) return local;
             if (!_cache.TryGet(KeyOf(d), out var choice) || choice.Icon == null) return null;
             return _catalog.TryGet(choice.Icon, out var icon) ? icon : null;
         }
 
+        /// <summary>True when .codeglyph.json sets the icon. A null icon means hidden. An unknown icon name is ignored.</summary>
+        private bool HasOverride(SymbolDescriptor d, out IconDefinition? icon)
+        {
+            icon = null;
+            if (_overrides == null || !_overrides.TryGet(d, out var name)) return false;
+            if (name == null) return true;
+            return _catalog.TryGet(name, out icon);
+        }
+
         /// <summary>A name whose known words agree on one icon needs no model call.</summary>
         private IconDefinition? LocalIcon(SymbolDescriptor d)
         {
+            if (!_style().UseLocalWords) return null;
             var name = Vocabulary.LocalIcon(d.Name);
             return name != null && _catalog.TryGet(name, out var icon) ? icon : null;
         }
 
         public bool ShouldRequest(SymbolDescriptor d)
         {
-            if (LocalIcon(d) != null) return false;
+            if (HasOverride(d, out _) || LocalIcon(d) != null) return false;
             var style = _style();
             if (!style.Shows(d.Kind)) return false;
             if (d.LineCount < style.MinSymbolLines) return false;

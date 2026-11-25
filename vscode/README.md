@@ -30,6 +30,28 @@ This project is vibed. An AI assistant wrote most of the code, and a person revi
 
 Keys are kept in VS Code secret storage. Symbol names, signatures and comments go to the provider you choose. Code bodies never go. Provider calls wait 15 seconds after your last edit.
 
+## Change or hide an icon
+
+- Hover the first line of a symbol. The hover shows where the icon came from, with links to change or hide it.
+- Or run "CodeGlyph: Change icon of symbol at cursor..." from the Command Palette. You can search all icons, hide the icon, or go back to the automatic icon.
+- The choice is saved in `.codeglyph.json` in your workspace. Commit it, and your team sees the same icons. The Visual Studio extension reads the same file.
+- The "CodeGlyph" view in the Explorer lists the icons of the active file. Click a row to go to the symbol.
+
+```json
+{
+  "overrides": [
+    { "name": "CancelOrder", "container": "OrderService", "kind": "Method", "icon": "shopping-cart" },
+    { "name": "Helper", "icon": null }
+  ]
+}
+```
+
+`container` and `kind` (`Type`, `Method` or `Property`) are optional. An entry with more fields wins. `"icon": null` hides the icon.
+
+## Icon choice
+
+The icon comes from `.codeglyph.json`, then from a short word list (a name with the word Email gets the mail icon with no model call), then from the cache, then from the model. Turn the word list off with `codeglyph.useLocalWords`. A method name that starts with a verb (Create, Delete, Get, Send, Validate, Update, Sync) gets a small badge. Turn it off with `codeglyph.verbBadges`. Set `codeglyph.colorMode` to `byIcon` to give each icon its own stable color.
+
 ## Settings
 
 Search for "codeglyph" in Settings. You can change the color mode, opacity, style, stroke width, column, icon height, symbol kinds, and the languages to skip. The Output channel "CodeGlyph" shows tokens and cost for each call. The command "CodeGlyph: Show usage" shows the session total.

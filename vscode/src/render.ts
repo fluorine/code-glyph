@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import { iconToSvg, svgToDataUri, type IconCatalog } from './catalog';
 import { columnFor, layout, maxLineWidth, type Vertical } from './placement';
+import { iconColor } from './color';
 import { badgeFor } from './vocabulary';
 import type { Sym } from './symbols';
 
 export interface RenderConfig {
   enabled: boolean;
-  colorMode: 'theme' | 'custom' | 'bySymbolKind';
+  colorMode: 'theme' | 'custom' | 'bySymbolKind' | 'byIcon';
   customColor: string;
   kindColors: { types: string; methods: string; properties: string };
   opacity: number;
@@ -63,8 +64,12 @@ export class GlyphRenderer {
     this.applied.delete(editor);
   }
 
-  private color(cfg: RenderConfig, kind: Sym['descriptor']['kind']): string {
+  private color(cfg: RenderConfig, kind: Sym['descriptor']['kind'], icon: string): string {
     if (cfg.colorMode === 'custom') return cfg.customColor;
+    if (cfg.colorMode === 'byIcon') {
+      const k = vscode.window.activeColorTheme.kind;
+      return iconColor(icon, k === vscode.ColorThemeKind.Dark || k === vscode.ColorThemeKind.HighContrast);
+    }
     if (cfg.colorMode === 'bySymbolKind') {
       return kind === 'Type' ? cfg.kindColors.types : kind === 'Method' ? cfg.kindColors.methods : cfg.kindColors.properties;
     }
@@ -119,7 +124,7 @@ export class GlyphRenderer {
       const fading = cfg.fadeInMs > 0 && now - first < cfg.fadeInMs;
       if (fading) this.scheduleFadeDone(first + cfg.fadeInMs - now + 80);
 
-      const color = this.color(cfg, s.descriptor.kind);
+      const color = this.color(cfg, s.descriptor.kind, icon!);
       const badgeName = cfg.verbBadges ? badgeFor(s.descriptor) : null;
       const badge = badgeName && badgeName !== icon ? this.catalog().get(badgeName) : undefined;
       const uri = svgToDataUri(iconToSvg(def, { color, opacity: cfg.opacity, strokeWidth: cfg.strokeWidth, filled: cfg.renderStyle === 'filled', badge }));

@@ -191,6 +191,8 @@ namespace CodeGlyph.Vsix.Editor
             var text = snapshot.GetText();
             var fileName = FileNameOf(_view.TextBuffer);
             var folder = FolderOf(_view.TextBuffer);
+            var filePath = _view.TextBuffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument pathDoc)
+                ? pathDoc.FilePath ?? "" : "";
             var tabSize = _view.Options.GetOptionValue(DefaultOptions.TabSizeOptionId);
 
             _cts.Cancel();
@@ -202,7 +204,7 @@ namespace CodeGlyph.Vsix.Editor
             {
                 try
                 {
-                    var parsed = RoslynSymbolReader.Parse(text, fileName, tabSize, folder);
+                    var parsed = RoslynSymbolReader.Parse(text, fileName, tabSize, folder, filePath);
                     if (ct.IsCancellationRequested) return;
 
                     OnUi(() =>

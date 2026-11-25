@@ -49,6 +49,35 @@ The Visual Studio extension in src/ stays C# only.
 | OpenAI | `OPENAI_API_KEY` or a key in the options page |
 | Claude Code CLI | The `claude` command in `PATH` |
 
+## Choosing the icon
+
+The icon comes from the first source that has an answer:
+
+1. `.codeglyph.json` (see below).
+2. A short word list. A name like `SendWelcomeEmail` has one known word (email), so it gets the mail icon with no model call. Turn this off with "Use local word list".
+3. The cache of earlier model answers.
+4. The model. It also gets the last two folder names and the icons your project already uses for the same words.
+
+A method name that starts with a verb (Create, Delete, Get, Send, Validate, Update, Sync) gets a small badge in the corner of its icon. Turn this off with "Verb badges".
+
+## Change or hide an icon
+
+Put a `.codeglyph.json` file in your repository. CodeGlyph uses the nearest file above the source file.
+The Visual Studio extension reads this file. The VS Code extension reads and writes it
+(command "CodeGlyph: Change icon of symbol at cursor...", or the links in the hover).
+
+```json
+{
+  "overrides": [
+    { "name": "CancelOrder", "container": "OrderService", "kind": "Method", "icon": "shopping-cart" },
+    { "name": "Helper", "icon": null }
+  ]
+}
+```
+
+`container` and `kind` (`Type`, `Method` or `Property`) are optional. An entry with more fields wins.
+`"icon": null` hides the icon. Icon names are from the [Lucide](https://lucide.dev/icons) set.
+
 ## Appearance options
 
 Color mode (theme, custom, by symbol kind, by icon), opacity, render style

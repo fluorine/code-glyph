@@ -3,6 +3,7 @@ import type { IconCache } from './cache';
 import { descriptorKey, type Descriptor } from './descriptor';
 import { isEligibleName } from './comments';
 import type { Glossary } from './glossary';
+import type { OverrideStore } from './overrides';
 import { buildSystem, GENERIC_ICONS, PROMPT_VERSION, wordsOf, type Request } from './prompt';
 import type { Selector } from './providers';
 import { emptyUsage, UsageTracker } from './usage';
@@ -17,6 +18,16 @@ export interface PipelineOptions {
   log: (m: string) => void;
   now?: () => number;
   glossary?: Glossary;
+  /** Default true. When false, every name goes to the model. */
+  useLocalWords?: () => boolean;
+  /** Entries from .codeglyph.json. They win over every other source. */
+  overrides?: OverrideStore;
+}
+
+export interface Explanation {
+  icon: string | null;
+  source: 'override' | 'word' | 'model' | 'none';
+  confidence?: number;
 }
 
 export class SelectionPipeline {
@@ -39,20 +50,39 @@ export class SelectionPipeline {
 
   /** The icon name to draw now. Null for none or not yet known. */
   lookup(d: Descriptor): string | null {
+    const o = this.override(d);
+    if (o) return o.icon;
     const local = this.local(d);
     if (local) return local;
     const c = this.cache.get(this.keyOf(d));
     return c?.icon && this.catalog.has(c.icon) ? c.icon : null;
   }
 
+  /** undefined: no override. icon null: the user hid the icon. */
+  private override(d: Descriptor): { icon: string | null } | undefined {
+    const o = this.o.overrides?.lookup(d);
+    return o && (o.icon === null || this.catalog.has(o.icon)) ? o : undefined;
+  }
+
+  /** Where the icon of a symbol comes from. */
+  explain(d: Descriptor): Explanation {
+    const o = this.override(d);
+    if (o) return { icon: o.icon, source: 'override' };
+    const local = this.local(d);
+    if (local) return { icon: local, source: 'word' };
+    const c = this.cache.get(this.keyOf(d));
+    return c?.icon && this.catalog.has(c.icon) ? { icon: c.icon, source: 'model', confidence: c.confidence } : { icon: null, source: 'none' };
+  }
+
   /** A name whose known words agree on one icon needs no model call. */
   private local(d: Descriptor): string | null {
+    if (this.o.useLocalWords && !this.o.useLocalWords()) return null;
     const icon = localIcon(d);
     return icon && this.catalog.has(icon) ? icon : null;
   }
 
   shouldRequest(d: Descriptor): boolean {
-    return d.lineCount >= this.o.minSymbolLines() && isEligibleName(d.name, d.kind) && !this.local(d);
+    return d.lineCount >= this.o.minSymbolLines() && isEligibleName(d.name, d.kind) && !this.override(d) && !this.local(d);
   }
 
   /** Asks the provider for every uncached, eligible descriptor. Never throws on provider errors. */

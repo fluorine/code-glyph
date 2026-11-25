@@ -175,6 +175,10 @@ namespace CodeGlyph.Vsix
         [Description("Show a small badge for the first word of a method name: Create, Delete, Get, Send, Validate, Update, Sync.")]
         public bool VerbBadges { get; set; } = true;
 
+        [Category("Appearance")] [DisplayName("Use local word list")]
+        [Description("Pick the icon with no model call when the name has known words like Email, Invoice or Order. Turn it off to let the model decide every name.")]
+        public bool UseLocalWords { get; set; } = true;
+
         [Category("Show for")] [DisplayName("Types")]
         public bool ShowForTypes { get; set; } = true;
 
@@ -208,6 +212,7 @@ namespace CodeGlyph.Vsix
             AllowOverCode = s.AllowOverCode;
             FadeInMs = s.FadeInMs;
             VerbBadges = s.VerbBadges;
+            UseLocalWords = s.UseLocalWords;
             ShowForTypes = s.ShowForTypes;
             ShowForMethods = s.ShowForMethods;
             ShowForProperties = s.ShowForProperties;
@@ -238,6 +243,7 @@ namespace CodeGlyph.Vsix
                     AllowOverCode = AllowOverCode,
                     FadeInMs = Clamp(FadeInMs, 0, 5000),
                     VerbBadges = VerbBadges,
+                    UseLocalWords = UseLocalWords,
                     ShowForTypes = ShowForTypes,
                     ShowForMethods = ShowForMethods,
                     ShowForProperties = ShowForProperties,

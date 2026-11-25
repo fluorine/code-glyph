@@ -20,6 +20,7 @@ export class IconCatalog {
   get(name: string): IconDef | undefined { return this.byName.get(name); }
   has(name: string): boolean { return this.byName.has(name); }
   get size(): number { return this.byName.size; }
+  all(): IconDef[] { return [...this.byName.values()]; }
 
   /**
    * Icons whose name or tags match the words, best first. Used for providers with no prompt cache.
