@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { join } from 'node:path';
 import { IconCatalog } from './catalog';
 import { IconCache } from './cache';
+import { Glossary } from './glossary';
 import { SelectionPipeline } from './pipeline';
 import { createSelector, type ProviderSettings } from './providers';
 import { GlyphRenderer, type RenderConfig } from './render';
@@ -55,6 +56,7 @@ export function activate(context: vscode.ExtensionContext): void {
       minLines: c.get('minLines', 4),
       maxLines: c.get('maxLines', 10),
       fadeInMs: c.get('fadeInMs', 700),
+      verbBadges: c.get('verbBadges', true),
     };
   };
 
@@ -72,6 +74,7 @@ export function activate(context: vscode.ExtensionContext): void {
       minSymbolLines: () => cfg().get('minSymbolLines', 4),
       logUsage: () => cfg().get('logUsage', true),
       log,
+      glossary: new Glossary(join(context.globalStorageUri.fsPath, 'glossary.json')),
     });
     const renderer = new GlyphRenderer(() => catalog, s => pipeline.lookup(s.descriptor), () => renderAll());
     pipeline.onResolved(() => renderAll());

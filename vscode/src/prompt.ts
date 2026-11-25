@@ -1,14 +1,30 @@
 import type { IconCatalog } from './catalog';
 import type { Descriptor } from './descriptor';
+import type { Hint } from './glossary';
+import { tokens } from './vocabulary';
 
-export const PROMPT_VERSION = '1';
+export const PROMPT_VERSION = '2';
 
 export const GENERIC_ICONS = ['file', 'code', 'braces', 'box', 'circle', 'square', 'shapes', 'settings', 'wrench', 'puzzle'];
 
 export interface Request { id: string; descriptor: Descriptor; }
 export interface Answer { id: string; icon: string | null; confidence: number; }
 
-export function buildSystem(catalog: IconCatalog): string {
+/** Words of the symbols, used to pick a short icon list. */
+export function wordsOf(requests: Request[]): string[] {
+  const out = new Set<string>();
+  for (const r of requests) {
+    const d = r.descriptor;
+    for (const t of [...tokens(d.name), ...tokens(d.container), ...tokens(d.folder ?? ''), ...tokens(d.comments), ...tokens(d.signature)]) {
+      if (t.length >= 3) out.add(t);
+      if (out.size >= 250) return [...out];
+    }
+  }
+  return [...out];
+}
+
+/** only is a short icon list. Leave it out to send the full list. */
+export function buildSystem(catalog: IconCatalog, only?: string[]): string {
   return [
     'You choose a watermark icon for symbols in a code editor. The code can be in any programming language.',
     'For each symbol, pick ONE icon name from the ICON LIST that shows the specific domain function of the symbol.',
@@ -20,28 +36,32 @@ export function buildSystem(catalog: IconCatalog): string {
     '- Do not pick an icon only because of the programming construct (class, method, function, handler, helper, manager, service, utility, base).',
     '- confidence is a number from 0 to 1. Use 0.9 or more only when the match is obvious.',
     '- Use only names that appear in the ICON LIST. Copy each name exactly.',
+    '- folder is a weak hint about the area of the code. Never choose an icon only from the folder.',
+    '- hints lists icons this project already uses for a word. Use the same icon for the same concept when it fits.',
+    ...(only ? ['- The ICON LIST is a short list chosen for these symbols. Answer null when no icon on it clearly fits.'] : []),
     '',
     'Answer with JSON only. No prose, no code fence. Format:',
     '{"results":[{"id":"<id>","icon":"<icon name or null>","confidence":0.0}]}',
     'Return one result for each input id.',
     '',
     'ICON LIST (name: tags):',
-    catalog.promptText(),
+    catalog.promptText(3, only),
   ].join('\n');
 }
 
 const cut = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) : s);
 
-export function buildUser(requests: Request[]): string {
+export function buildUser(requests: Request[], hints: Hint[] = []): string {
   const symbols = requests.map(r => {
     const d = r.descriptor;
     const o: Record<string, string> = { id: r.id, kind: d.kind, name: d.name, language: d.language };
     if (d.container) o.container = d.container;
+    if (d.folder) o.folder = d.folder;
     if (d.signature) o.signature = cut(d.signature, 200);
     if (d.comments) o.comments = cut(d.comments, 600);
     return o;
   });
-  return JSON.stringify({ symbols });
+  return JSON.stringify(hints.length ? { hints, symbols } : { symbols });
 }
 
 /** Accepts {"results":[...]} or a bare array, with or without surrounding text. */

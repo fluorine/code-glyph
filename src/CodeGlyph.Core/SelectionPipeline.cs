@@ -23,6 +23,7 @@ namespace CodeGlyph
         private readonly Action<string> _log;
         private readonly Func<DateTime> _now;
         private readonly Func<bool> _logUsage;
+        private readonly Glossary? _glossary;
         private readonly object _gate = new object();
         private readonly HashSet<string> _inFlight = new HashSet<string>();
         private DateTime _blockedUntil = DateTime.MinValue;
@@ -32,8 +33,9 @@ namespace CodeGlyph
         public SelectionPipeline(
             IconCatalog catalog, IconCache cache, Func<IIconSelector?> selector,
             Func<GlyphStyle> style, Action<string> log, Func<DateTime>? now = null,
-            Func<bool>? logUsage = null)
+            Func<bool>? logUsage = null, Glossary? glossary = null)
         {
+            _glossary = glossary;
             _logUsage = logUsage ?? (() => true);
             _catalog = catalog;
             _cache = cache;
@@ -53,12 +55,22 @@ namespace CodeGlyph
         /// <summary>The icon to draw now, or null for none or not yet known.</summary>
         public IconDefinition? Lookup(SymbolDescriptor d)
         {
+            var local = LocalIcon(d);
+            if (local != null) return local;
             if (!_cache.TryGet(KeyOf(d), out var choice) || choice.Icon == null) return null;
             return _catalog.TryGet(choice.Icon, out var icon) ? icon : null;
         }
 
+        /// <summary>A name whose known words agree on one icon needs no model call.</summary>
+        private IconDefinition? LocalIcon(SymbolDescriptor d)
+        {
+            var name = Vocabulary.LocalIcon(d.Name);
+            return name != null && _catalog.TryGet(name, out var icon) ? icon : null;
+        }
+
         public bool ShouldRequest(SymbolDescriptor d)
         {
+            if (LocalIcon(d) != null) return false;
             var style = _style();
             if (!style.Shows(d.Kind)) return false;
             if (d.LineCount < style.MinSymbolLines) return false;
@@ -147,7 +159,12 @@ namespace CodeGlyph
         {
             SelectorUsage? usage = null;
             if (selector is IReportsUsage reporter) reporter.UsageReported = u => usage = u;
-            var answers = await selector.SelectAsync(_systemPrompt!, batch, ct).ConfigureAwait(false);
+            var hints = _glossary?.Hints(batch.Select(r => r.Descriptor)) ?? (IReadOnlyList<GlyphHint>)Array.Empty<GlyphHint>();
+            var only = selector is IWantsShortlist
+                ? _catalog.Shortlist(SelectionPrompt.WordsOf(batch), hints.Select(h => h.Icon))
+                : Array.Empty<string>();
+            var system = only.Count > 0 ? SelectionPrompt.BuildSystem(_catalog, only) : _systemPrompt!;
+            var answers = await selector.SelectAsync(system, batch, ct, hints).ConfigureAwait(false);
             var line = Usage.Add(selector.Name, batch.Count, usage);
             if (_logUsage()) _log(line + ". " + Usage.Summary());
             // An empty reply is a damaged reply. It must not become a cached "none".
@@ -177,6 +194,7 @@ namespace CodeGlyph
                 {
                     icon = answer.Icon;
                     confidence = answer.Confidence;
+                    if (confidence >= 0.9) _glossary?.Learn(request.Descriptor, icon);
                 }
                 _cache.Set(keyById[request.Id], icon, confidence);
             }

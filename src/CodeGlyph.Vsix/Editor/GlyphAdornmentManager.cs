@@ -190,6 +190,7 @@ namespace CodeGlyph.Vsix.Editor
 
             var text = snapshot.GetText();
             var fileName = FileNameOf(_view.TextBuffer);
+            var folder = FolderOf(_view.TextBuffer);
             var tabSize = _view.Options.GetOptionValue(DefaultOptions.TabSizeOptionId);
 
             _cts.Cancel();
@@ -201,7 +202,7 @@ namespace CodeGlyph.Vsix.Editor
             {
                 try
                 {
-                    var parsed = RoslynSymbolReader.Parse(text, fileName, tabSize);
+                    var parsed = RoslynSymbolReader.Parse(text, fileName, tabSize, folder);
                     if (ct.IsCancellationRequested) return;
 
                     OnUi(() =>
@@ -234,6 +235,16 @@ namespace CodeGlyph.Vsix.Editor
             buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument doc) && doc.FilePath != null
                 ? System.IO.Path.GetFileName(doc.FilePath)
                 : "";
+
+        /// <summary>The last two folder names of the file, like "billing/invoices".</summary>
+        private static string FolderOf(ITextBuffer buffer)
+        {
+            if (!buffer.Properties.TryGetProperty(typeof(ITextDocument), out ITextDocument doc) || doc.FilePath == null) return "";
+            var dir = System.IO.Path.GetDirectoryName(doc.FilePath);
+            var names = (dir ?? "").Split(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                .Where(n => n.Length > 0 && !n.EndsWith(":", StringComparison.Ordinal)).ToArray();
+            return string.Join("/", names.Skip(Math.Max(0, names.Length - 2)));
+        }
 
         private void Redraw()
         {
@@ -288,7 +299,11 @@ namespace CodeGlyph.Vsix.Editor
                     top, bottom, codeRight, _view.ViewportWidth, _view.ViewportHeight, style);
                 if (placement == null) continue;
 
-                var path = BuildPath(icon, sym, style, placement.Value.Size);
+                IconDefinition? badge = null;
+                var badgeName = style.VerbBadges ? Vocabulary.BadgeFor(sym.Descriptor) : null;
+                if (badgeName != null && badgeName != icon.Name) GlyphServices.Catalog.TryGet(badgeName, out badge);
+
+                var path = BuildIcon(icon, badge, sym, style, placement.Value.Size);
                 ApplyFade(path, pipeline.KeyOf(sym.Descriptor), style.FadeInMs);
                 Canvas.SetLeft(path, placement.Value.Left + _view.ViewportLeft);
                 Canvas.SetTop(path, placement.Value.Top + _view.ViewportTop);
@@ -300,7 +315,7 @@ namespace CodeGlyph.Vsix.Editor
         /// Fades an icon in once, when it is first drawn in this view. Redraws during the fade
         /// continue it from the elapsed time. Scrolling never replays it.
         /// </summary>
-        private void ApplyFade(Path path, string key, int fadeMs)
+        private void ApplyFade(UIElement path, string key, int fadeMs)
         {
             if (fadeMs <= 0) return;
             var now = DateTime.UtcNow;
@@ -339,20 +354,51 @@ namespace CodeGlyph.Vsix.Editor
             return lastLine.Bottom + (lineNo - lastNo - (bottom ? 0 : 1)) * height + (bottom ? height : 0);
         }
 
-        private Path BuildPath(IconDefinition icon, SymbolSpan sym, GlyphStyle style, double size)
+        /// <summary>
+        /// One path, or with a badge a 24 by 24 canvas. The main icon shrinks to 78% and the badge
+        /// sits in the bottom right corner at 40%. Its lines are thinner, as in the VS Code version.
+        /// </summary>
+        private UIElement BuildIcon(IconDefinition icon, IconDefinition? badge, SymbolSpan sym, GlyphStyle style, double size)
         {
             var scale = size / 24.0;
+            if (badge == null)
+            {
+                var single = BuildPath(icon, icon, sym, style, style.StrokeWidth);
+                single.RenderTransform = new ScaleTransform(scale, scale);
+                return single;
+            }
+
+            var main = BuildPath(icon, icon, sym, style, style.StrokeWidth);
+            main.RenderTransform = new ScaleTransform(0.78, 0.78);
+            var small = BuildPath(badge, icon, sym, style, style.StrokeWidth * 2);
+            small.RenderTransform = new TransformGroup
+            {
+                Children = { new ScaleTransform(0.4, 0.4), new TranslateTransform(14, 14) },
+            };
+            var canvas = new Canvas
+            {
+                Width = 24,
+                Height = 24,
+                IsHitTestVisible = false,
+                RenderTransform = new ScaleTransform(scale, scale),
+            };
+            canvas.Children.Add(main);
+            canvas.Children.Add(small);
+            return canvas;
+        }
+
+        private Path BuildPath(IconDefinition shape, IconDefinition icon, SymbolSpan sym, GlyphStyle style, double thickness)
+        {
             var stroke = BrushFor(icon, sym, style, style.Opacity);
             var path = new Path
             {
-                Data = SvgGeometryBuilder.Get(icon),
+                Data = SvgGeometryBuilder.Get(shape),
                 Stroke = stroke,
-                StrokeThickness = style.StrokeWidth,
+                StrokeThickness = thickness,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
                 StrokeLineJoin = PenLineJoin.Round,
                 IsHitTestVisible = false,
-                RenderTransform = new ScaleTransform(scale, scale),
                 SnapsToDevicePixels = false,
             };
             if (style.RenderStyle == RenderStyle.Filled)

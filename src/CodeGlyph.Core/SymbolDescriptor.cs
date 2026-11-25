@@ -14,6 +14,9 @@ namespace CodeGlyph
         public string Container { get; set; } = "";
         public string Namespace { get; set; } = "";
         public string FileName { get; set; } = "";
+
+        /// <summary>Last two folder names of the file. A weak hint. It is part of the key.</summary>
+        public string Folder { get; set; } = "";
         public int LineCount { get; set; }
         public string Summary { get; set; } = "";
         public string Comments { get; set; } = "";
@@ -27,6 +30,7 @@ namespace CodeGlyph
             var sb = new StringBuilder();
             sb.Append(catalogVersion).Append('|').Append(promptVersion).Append('|')
               .Append(Kind).Append('|').Append(Name).Append('|').Append(Container).Append('|')
+              .Append(Folder).Append('|')
               .Append(Namespace).Append('|').Append(Normalize(Summary)).Append('|')
               .Append(Normalize(Comments)).Append('|')
               .Append(string.Join(",", BaseTypes.OrderBy(x => x, StringComparer.Ordinal))).Append('|')

@@ -67,6 +67,7 @@
         "codeglyph.verticalAlignment": { "type": "string", "default": "center", "enum": [ "top", "center", "bottom" ] },
         "codeglyph.minLines": { "type": "integer", "default": 4, "minimum": 2, "description": "Smallest icon height in lines. If the free lines are fewer, no icon is shown." },
         "codeglyph.fadeInMs": { "type": "integer", "default": 700, "minimum": 0, "maximum": 5000, "description": "An icon fades in softly when it first appears. 0 turns the fade off." },
+        "codeglyph.verbBadges": { "type": "boolean", "default": true, "description": "Show a small badge for the first word of a method name: Create, Delete, Get, Send, Validate, Update, Sync." },
         "codeglyph.maxLines": { "type": "integer", "default": 10, "minimum": 2, "description": "Largest icon height in lines." }
       }
     }

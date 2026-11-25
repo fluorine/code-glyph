@@ -13,7 +13,7 @@ import { emptyUsage } from '../src/usage';
 const catalog = IconCatalog.load(join(__dirname, '..', 'resources', 'icons.json.gz'));
 
 const desc = (o: Partial<Descriptor> = {}): Descriptor => ({
-  kind: 'Type', name: 'EmailSender', container: '', language: 'typescript', lineCount: 10,
+  kind: 'Type', name: 'WidgetSender', container: '', language: 'typescript', lineCount: 10,
   signature: '', comments: 'Sends email to patients.', ...o,
 });
 

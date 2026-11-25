@@ -41,7 +41,8 @@ namespace CodeGlyph.Vsix
                             () => Settings.Style,
                             Log,
                             null,
-                            () => Settings.LogUsage);
+                            () => Settings.LogUsage,
+                            new Glossary(SettingsStore.GlossaryPath));
                     }
                     return _pipeline;
                 }

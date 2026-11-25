@@ -64,6 +64,7 @@ export async function readSymbols(doc: vscode.TextDocument, show: ShowFor, minSy
   if (!raw || !raw.length) return [];
 
   const lines = doc.getText().split(/\r?\n/);
+  const folder = doc.uri.path.split('/').slice(0, -1).slice(-2).join('/');
   const out: Sym[] = [];
   const allowed = (k: SymbolKind) => (k === 'Type' ? show.types : k === 'Method' ? show.methods : show.properties);
 
@@ -80,7 +81,7 @@ export async function readSymbols(doc: vscode.TextDocument, show: ShowFor, minSy
           out.push({
             start: n.start, end: n.end, sigLine: n.sigLine, band,
             descriptor: {
-              kind, name: n.name, container: path.join('.'), language: doc.languageId, lineCount,
+              kind, name: n.name, container: path.join('.'), folder, language: doc.languageId, lineCount,
               signature: n.detail.trim().slice(0, 200),
               comments: extractComments(lines, n.sigLine, n.sigLine),
             },

@@ -2,9 +2,11 @@ import type { IconCatalog } from './catalog';
 import type { IconCache } from './cache';
 import { descriptorKey, type Descriptor } from './descriptor';
 import { isEligibleName } from './comments';
-import { buildSystem, GENERIC_ICONS, PROMPT_VERSION, type Request } from './prompt';
+import type { Glossary } from './glossary';
+import { buildSystem, GENERIC_ICONS, PROMPT_VERSION, wordsOf, type Request } from './prompt';
 import type { Selector } from './providers';
 import { emptyUsage, UsageTracker } from './usage';
+import { localIcon } from './vocabulary';
 
 const BATCH = 12;
 
@@ -14,6 +16,7 @@ export interface PipelineOptions {
   logUsage: () => boolean;
   log: (m: string) => void;
   now?: () => number;
+  glossary?: Glossary;
 }
 
 export class SelectionPipeline {
@@ -36,12 +39,20 @@ export class SelectionPipeline {
 
   /** The icon name to draw now. Null for none or not yet known. */
   lookup(d: Descriptor): string | null {
+    const local = this.local(d);
+    if (local) return local;
     const c = this.cache.get(this.keyOf(d));
     return c?.icon && this.catalog.has(c.icon) ? c.icon : null;
   }
 
+  /** A name whose known words agree on one icon needs no model call. */
+  private local(d: Descriptor): string | null {
+    const icon = localIcon(d);
+    return icon && this.catalog.has(icon) ? icon : null;
+  }
+
   shouldRequest(d: Descriptor): boolean {
-    return d.lineCount >= this.o.minSymbolLines() && isEligibleName(d.name, d.kind);
+    return d.lineCount >= this.o.minSymbolLines() && isEligibleName(d.name, d.kind) && !this.local(d);
   }
 
   /** Asks the provider for every uncached, eligible descriptor. Never throws on provider errors. */
@@ -100,7 +111,10 @@ export class SelectionPipeline {
   }
 
   private async ask(selector: Selector, batch: Request[], signal?: AbortSignal) {
-    const { answers, usage } = await selector.select(this.system!, batch, signal);
+    const hints = this.o.glossary?.hints(batch.map(r => r.descriptor)) ?? [];
+    const only = selector.shortlist ? this.catalog.shortlist(wordsOf(batch), hints.map(h => h.icon)) : [];
+    const system = only.length ? buildSystem(this.catalog, only) : this.system!;
+    const { answers, usage } = await selector.select(system, batch, signal, hints);
     const line = this.usage.add(selector.name, batch.length, usage ?? emptyUsage());
     if (this.o.logUsage()) this.o.log(line + '. ' + this.usage.summary());
     // An empty reply is a damaged reply. It must not become a cached "none".
@@ -121,6 +135,7 @@ export class SelectionPipeline {
       if (a?.icon && this.catalog.has(a.icon) && a.confidence >= min && !(a.confidence < 0.9 && GENERIC_ICONS.includes(a.icon))) {
         icon = a.icon;
         confidence = a.confidence;
+        if (confidence >= 0.9) this.o.glossary?.learn(r.descriptor, icon);
       }
       this.cache.set(keyById.get(r.id)!, icon, confidence);
     }

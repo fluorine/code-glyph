@@ -15,7 +15,13 @@ namespace CodeGlyph.Selectors
         string Name { get; }
 
         Task<IReadOnlyList<IconSelection>> SelectAsync(
-            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct);
+            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct,
+            IReadOnlyList<GlyphHint>? hints = null);
+    }
+
+    /// <summary>A provider with no prompt cache. It gets a short icon list for each batch.</summary>
+    public interface IWantsShortlist
+    {
     }
 
     public enum ProviderKind { Auto, Anthropic, OpenAI, ClaudeCli }
@@ -97,7 +103,8 @@ namespace CodeGlyph.Selectors
         public string Name => "Anthropic " + _model;
 
         public async Task<IReadOnlyList<IconSelection>> SelectAsync(
-            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct)
+            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct,
+            IReadOnlyList<GlyphHint>? hints = null)
         {
             var body = new Dictionary<string, object>
             {
@@ -114,7 +121,7 @@ namespace CodeGlyph.Selectors
                 },
                 ["messages"] = new[]
                 {
-                    new Dictionary<string, string> { ["role"] = "user", ["content"] = SelectionPrompt.BuildUser(requests) },
+                    new Dictionary<string, string> { ["role"] = "user", ["content"] = SelectionPrompt.BuildUser(requests, hints) },
                 },
             };
 
@@ -154,7 +161,7 @@ namespace CodeGlyph.Selectors
         internal static string Shorten(string s) => s.Length <= 300 ? s : s.Substring(0, 300);
     }
 
-    public sealed class OpenAiSelector : IIconSelector, IReportsUsage
+    public sealed class OpenAiSelector : IIconSelector, IReportsUsage, IWantsShortlist
     {
         public Action<SelectorUsage>? UsageReported { get; set; }
 
@@ -174,7 +181,8 @@ namespace CodeGlyph.Selectors
         public string Name => "OpenAI " + _model;
 
         public async Task<IReadOnlyList<IconSelection>> SelectAsync(
-            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct)
+            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct,
+            IReadOnlyList<GlyphHint>? hints = null)
         {
             var body = new Dictionary<string, object>
             {
@@ -184,7 +192,7 @@ namespace CodeGlyph.Selectors
                 ["messages"] = new[]
                 {
                     new Dictionary<string, string> { ["role"] = "system", ["content"] = systemPrompt },
-                    new Dictionary<string, string> { ["role"] = "user", ["content"] = SelectionPrompt.BuildUser(requests) },
+                    new Dictionary<string, string> { ["role"] = "user", ["content"] = SelectionPrompt.BuildUser(requests, hints) },
                 },
             };
 
@@ -215,7 +223,7 @@ namespace CodeGlyph.Selectors
         }
     }
 
-    public sealed class ClaudeCliSelector : IIconSelector, IReportsUsage
+    public sealed class ClaudeCliSelector : IIconSelector, IReportsUsage, IWantsShortlist
     {
         public Action<SelectorUsage>? UsageReported { get; set; }
 
@@ -232,7 +240,8 @@ namespace CodeGlyph.Selectors
         public string Name => "Claude CLI " + _model;
 
         public async Task<IReadOnlyList<IconSelection>> SelectAsync(
-            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct)
+            string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct,
+            IReadOnlyList<GlyphHint>? hints = null)
         {
             await OneAtATime.WaitAsync(ct).ConfigureAwait(false);
             try
@@ -272,7 +281,7 @@ namespace CodeGlyph.Selectors
                     var errTask = proc.StandardError.ReadToEndAsync();
                     var outTask = proc.StandardOutput.ReadToEndAsync();
                     await proc.StandardInput.WriteAsync(
-                        systemPrompt + "\n\nSYMBOLS (JSON):\n" + SelectionPrompt.BuildUser(requests)).ConfigureAwait(false);
+                        systemPrompt + "\n\nSYMBOLS (JSON):\n" + SelectionPrompt.BuildUser(requests, hints)).ConfigureAwait(false);
                     proc.StandardInput.Close();
 
                     using (ct.Register(() => { try { proc.Kill(); } catch { } }))

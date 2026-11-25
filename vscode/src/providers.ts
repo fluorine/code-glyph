@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import type { Hint } from './glossary';
 import { buildUser, parseResponse, type Answer, type Request } from './prompt';
 import { emptyUsage, type Usage } from './usage';
 
@@ -7,7 +8,9 @@ export interface SelectResult { answers: Answer[]; usage: Usage; }
 
 export interface Selector {
   readonly name: string;
-  select(system: string, requests: Request[], signal?: AbortSignal): Promise<SelectResult>;
+  /** True when the provider has no prompt cache. It gets a short icon list for each batch. */
+  readonly shortlist?: boolean;
+  select(system: string, requests: Request[], signal?: AbortSignal, hints?: Hint[]): Promise<SelectResult>;
 }
 
 export type ProviderKind = 'auto' | 'anthropic' | 'openai' | 'claudeCli';
@@ -46,14 +49,14 @@ export class AnthropicSelector implements Selector {
   constructor(private readonly key: string, private readonly model: string) {}
   get name() { return 'Anthropic ' + this.model; }
 
-  async select(system: string, requests: Request[], signal?: AbortSignal): Promise<SelectResult> {
+  async select(system: string, requests: Request[], signal?: AbortSignal, hints?: Hint[]): Promise<SelectResult> {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST', signal,
       headers: { 'content-type': 'application/json', 'x-api-key': this.key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: this.model, max_tokens: 2048,
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: buildUser(requests) }],
+        messages: [{ role: 'user', content: buildUser(requests, hints) }],
       }),
     });
     const text = await resp.text();
@@ -73,14 +76,15 @@ export class OpenAiSelector implements Selector {
   private readonly base: string;
   constructor(private readonly key: string, private readonly model: string, baseUrl: string) { this.base = baseUrl.replace(/\/+$/, ''); }
   get name() { return 'OpenAI ' + this.model; }
+  readonly shortlist = true;
 
-  async select(system: string, requests: Request[], signal?: AbortSignal): Promise<SelectResult> {
+  async select(system: string, requests: Request[], signal?: AbortSignal, hints?: Hint[]): Promise<SelectResult> {
     const resp = await fetch(this.base + '/chat/completions', {
       method: 'POST', signal,
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + this.key },
       body: JSON.stringify({
         model: this.model, temperature: 0, response_format: { type: 'json_object' },
-        messages: [{ role: 'system', content: system }, { role: 'user', content: buildUser(requests) }],
+        messages: [{ role: 'system', content: system }, { role: 'user', content: buildUser(requests, hints) }],
       }),
     });
     const text = await resp.text();
@@ -99,14 +103,15 @@ export class ClaudeCliSelector implements Selector {
   private static chain: Promise<unknown> = Promise.resolve();
   constructor(private readonly path: string, private readonly model: string) {}
   get name() { return 'Claude CLI ' + this.model; }
+  readonly shortlist = true;
 
-  select(system: string, requests: Request[], signal?: AbortSignal): Promise<SelectResult> {
-    const run = ClaudeCliSelector.chain.then(() => this.run(system, requests, signal));
+  select(system: string, requests: Request[], signal?: AbortSignal, hints?: Hint[]): Promise<SelectResult> {
+    const run = ClaudeCliSelector.chain.then(() => this.run(system, requests, signal, hints));
     ClaudeCliSelector.chain = run.catch(() => undefined);
     return run;
   }
 
-  private run(system: string, requests: Request[], signal?: AbortSignal): Promise<SelectResult> {
+  private run(system: string, requests: Request[], signal?: AbortSignal, hints?: Hint[]): Promise<SelectResult> {
     return new Promise((resolve, reject) => {
       const args = ['-p', '--output-format', 'json', '--model', this.model, '--tools', '', '--no-session-persistence',
         '--system-prompt', 'You answer with JSON only.'];

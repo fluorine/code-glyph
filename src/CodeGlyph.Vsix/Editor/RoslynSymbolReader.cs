@@ -18,12 +18,13 @@ namespace CodeGlyph.Vsix.Editor
         private static readonly Regex AnyTag = new Regex("<[^>]+>", RegexOptions.Compiled);
         private static readonly Regex Spaces = new Regex("\\s+", RegexOptions.Compiled);
 
-        public static ParsedFile Parse(string text, string fileName, int tabSize)
+        public static ParsedFile Parse(string text, string fileName, int tabSize, string folder = "")
         {
             var tree = CSharpSyntaxTree.ParseText(text);
             var source = tree.GetText();
             var symbols = new List<SymbolSpan>();
             Walk(tree.GetRoot(), -1, source, fileName, symbols);
+            foreach (var s in symbols) s.Descriptor.Folder = folder;
 
             var columns = new int[source.Lines.Count];
             for (var i = 0; i < columns.Length; i++)

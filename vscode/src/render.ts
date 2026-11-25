@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { iconToSvg, svgToDataUri, type IconCatalog } from './catalog';
 import { columnFor, layout, maxLineWidth, type Vertical } from './placement';
+import { badgeFor } from './vocabulary';
 import type { Sym } from './symbols';
 
 export interface RenderConfig {
@@ -18,6 +19,7 @@ export interface RenderConfig {
   minLines: number;
   maxLines: number;
   fadeInMs: number;
+  verbBadges: boolean;
 }
 
 const MAX_TYPES = 1500;
@@ -118,7 +120,9 @@ export class GlyphRenderer {
       if (fading) this.scheduleFadeDone(first + cfg.fadeInMs - now + 80);
 
       const color = this.color(cfg, s.descriptor.kind);
-      const uri = svgToDataUri(iconToSvg(def, { color, opacity: cfg.opacity, strokeWidth: cfg.strokeWidth, filled: cfg.renderStyle === 'filled' }));
+      const badgeName = cfg.verbBadges ? badgeFor(s.descriptor) : null;
+      const badge = badgeName && badgeName !== icon ? this.catalog().get(badgeName) : undefined;
+      const uri = svgToDataUri(iconToSvg(def, { color, opacity: cfg.opacity, strokeWidth: cfg.strokeWidth, filled: cfg.renderStyle === 'filled', badge }));
       for (let k = 0; k < box.sizeLines; k++) {
         const line = box.startLine + k;
         if (line >= doc.lineCount) break;
@@ -126,7 +130,7 @@ export class GlyphRenderer {
         // That row is lensPx pixels high. It is shorter than a code line, so lines and rows add up separately.
         const fillsGap = k > 0 && lensLines.has(line);
         const rowsAbove = fillsGap ? gapsBefore[k] - 1 : gapsBefore[k];
-        const key = [icon, color, cfg.opacity, cfg.strokeWidth, cfg.renderStyle, box.sizeLines, gaps, k, rowsAbove, fillsGap, lensPx, col, fading ? cfg.fadeInMs : 0].join('|');
+        const key = [icon, badge?.n ?? '', color, cfg.opacity, cfg.strokeWidth, cfg.renderStyle, box.sizeLines, gaps, k, rowsAbove, fillsGap, lensPx, col, fading ? cfg.fadeInMs : 0].join('|');
         const size = `(${box.sizeLines} * 1lh + ${gaps} * ${lensPx}px)`;
         const type = this.typeFor(key, () => ({
           isWholeLine: true,

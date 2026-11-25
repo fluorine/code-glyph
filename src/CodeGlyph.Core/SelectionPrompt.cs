@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -34,14 +35,34 @@ namespace CodeGlyph
     public static class SelectionPrompt
     {
         /// <summary>Part of every cache key. Raise it when the instructions change.</summary>
-        public const string Version = "1";
+        public const string Version = "2";
 
         public static readonly string[] GenericIcons =
         {
             "file", "code", "braces", "box", "circle", "square", "shapes", "settings", "wrench", "puzzle"
         };
 
-        public static string BuildSystem(IconCatalog catalog)
+        /// <summary>Words of the symbols, used to pick a short icon list.</summary>
+        public static IReadOnlyList<string> WordsOf(IEnumerable<SelectionRequest> requests)
+        {
+            var words = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var r in requests)
+            {
+                var d = r.Descriptor;
+                var all = Vocabulary.Tokens(d.Name).Concat(Vocabulary.Tokens(d.Container)).Concat(Vocabulary.Tokens(d.Folder))
+                    .Concat(Vocabulary.Tokens(d.Summary)).Concat(Vocabulary.Tokens(d.Comments))
+                    .Concat(d.Parameters.SelectMany(p => Vocabulary.Tokens(p)));
+                foreach (var t in all)
+                {
+                    if (t.Length >= 3) words.Add(t);
+                    if (words.Count >= 250) return words.ToList();
+                }
+            }
+            return words.ToList();
+        }
+
+        /// <summary>only is a short icon list. Leave it out to send the full list.</summary>
+        public static string BuildSystem(IconCatalog catalog, IReadOnlyCollection<string>? only = null)
         {
             var sb = new StringBuilder();
             sb.AppendLine("You choose a watermark icon for C# symbols in a code editor.");
@@ -55,23 +76,39 @@ namespace CodeGlyph
             sb.AppendLine("- Do not pick an icon only because of the programming construct (class, method, handler, helper, manager, service, utility, base).");
             sb.AppendLine("- confidence is a number from 0 to 1. Use 0.9 or more only when the match is obvious.");
             sb.AppendLine("- Use only names that appear in the ICON LIST. Copy each name exactly.");
+            sb.AppendLine("- folder is a weak hint about the area of the code. Never choose an icon only from the folder.");
+            sb.AppendLine("- hints lists icons this project already uses for a word. Use the same icon for the same concept when it fits.");
+            if (only != null)
+                sb.AppendLine("- The ICON LIST is a short list chosen for these symbols. Answer null when no icon on it clearly fits.");
             sb.AppendLine();
             sb.AppendLine("Answer with JSON only. No prose, no code fence. Format:");
             sb.AppendLine("{\"results\":[{\"id\":\"<id>\",\"icon\":\"<icon name or null>\",\"confidence\":0.0}]}");
             sb.AppendLine("Return one result for each input id.");
             sb.AppendLine();
             sb.AppendLine("ICON LIST (name: tags):");
-            sb.Append(catalog.BuildPromptText());
+            sb.Append(catalog.BuildPromptText(3, only));
             return sb.ToString();
         }
 
-        public static string BuildUser(IReadOnlyList<SelectionRequest> requests)
+        public static string BuildUser(IReadOnlyList<SelectionRequest> requests, IReadOnlyList<GlyphHint>? hints = null)
         {
             using (var stream = new System.IO.MemoryStream())
             {
                 using (var w = new Utf8JsonWriter(stream))
                 {
                     w.WriteStartObject();
+                    if (hints != null && hints.Count > 0)
+                    {
+                        w.WriteStartArray("hints");
+                        foreach (var h in hints)
+                        {
+                            w.WriteStartObject();
+                            w.WriteString("word", h.Word);
+                            w.WriteString("icon", h.Icon);
+                            w.WriteEndObject();
+                        }
+                        w.WriteEndArray();
+                    }
                     w.WriteStartArray("symbols");
                     foreach (var r in requests)
                     {
@@ -81,6 +118,7 @@ namespace CodeGlyph
                         w.WriteString("kind", d.Kind.ToString());
                         w.WriteString("name", d.Name);
                         WriteIfNotEmpty(w, "container", d.Container);
+                        WriteIfNotEmpty(w, "folder", d.Folder);
                         WriteIfNotEmpty(w, "namespace", d.Namespace);
                         WriteIfNotEmpty(w, "file", d.FileName);
                         WriteIfNotEmpty(w, "summary", Truncate(d.Summary, 600));

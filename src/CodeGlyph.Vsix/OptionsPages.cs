@@ -171,6 +171,10 @@ namespace CodeGlyph.Vsix
         [Description("True: the icon sits behind the text, always visible, no scrolling. False: the icon uses only free space right of the code.")]
         public bool AllowOverCode { get; set; } = true;
 
+        [Category("Appearance")] [DisplayName("Verb badges")]
+        [Description("Show a small badge for the first word of a method name: Create, Delete, Get, Send, Validate, Update, Sync.")]
+        public bool VerbBadges { get; set; } = true;
+
         [Category("Show for")] [DisplayName("Types")]
         public bool ShowForTypes { get; set; } = true;
 
@@ -203,6 +207,7 @@ namespace CodeGlyph.Vsix
             MarginToEdge = (int)s.MarginToEdge;
             AllowOverCode = s.AllowOverCode;
             FadeInMs = s.FadeInMs;
+            VerbBadges = s.VerbBadges;
             ShowForTypes = s.ShowForTypes;
             ShowForMethods = s.ShowForMethods;
             ShowForProperties = s.ShowForProperties;
@@ -232,6 +237,7 @@ namespace CodeGlyph.Vsix
                     MarginToEdge = Clamp(MarginToEdge, 0, 400),
                     AllowOverCode = AllowOverCode,
                     FadeInMs = Clamp(FadeInMs, 0, 5000),
+                    VerbBadges = VerbBadges,
                     ShowForTypes = ShowForTypes,
                     ShowForMethods = ShowForMethods,
                     ShowForProperties = ShowForProperties,

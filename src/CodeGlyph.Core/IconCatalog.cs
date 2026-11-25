@@ -88,11 +88,45 @@ namespace CodeGlyph
             }
         }
 
+        /// <summary>
+        /// Icons whose name or tags match the words, best first. For providers with no prompt cache.
+        /// Empty when nothing matches. Callers then send the full list.
+        /// </summary>
+        public IReadOnlyList<string> Shortlist(IEnumerable<string> words, IEnumerable<string>? extra = null, int max = 150)
+        {
+            var wanted = words.Where(w => w.Length >= 3).Distinct().ToList();
+            var scored = new List<(string Name, int Score)>();
+            foreach (var icon in _icons.Values)
+            {
+                var nameParts = icon.Name.Split('-');
+                var tagParts = new HashSet<string>(icon.Tags.SelectMany(t =>
+                    t.ToLowerInvariant().Split(new[] { ' ', ',', '-', '_', '/', '.' }, StringSplitOptions.RemoveEmptyEntries)));
+                var score = 0;
+                foreach (var w in wanted)
+                {
+                    foreach (var p in nameParts)
+                    {
+                        if (p == w) score += 3;
+                        else if (p.Length >= 4 && w.Length >= 4 && (p.StartsWith(w, StringComparison.Ordinal) || w.StartsWith(p, StringComparison.Ordinal))) score += 2;
+                    }
+                    if (tagParts.Contains(w)) score += 1;
+                }
+                if (score > 0) scored.Add((icon.Name, score));
+            }
+            var names = scored.OrderByDescending(s => s.Score).ThenBy(s => s.Name, StringComparer.Ordinal)
+                .Take(max).Select(s => s.Name).ToList();
+            var all = new HashSet<string>(names, StringComparer.Ordinal);
+            foreach (var e in extra ?? Enumerable.Empty<string>())
+                if (_icons.ContainsKey(e) && all.Add(e)) names.Add(e);
+            return names;
+        }
+
         /// <summary>One line per icon: "name: tag, tag, tag". Sorted for a stable prompt-cache prefix.</summary>
-        public string BuildPromptText(int maxTags = 3)
+        public string BuildPromptText(int maxTags = 3, IReadOnlyCollection<string>? only = null)
         {
             var sb = new StringBuilder();
-            foreach (var icon in _icons.Values.OrderBy(i => i.Name, StringComparer.Ordinal))
+            var keep = only == null ? null : new HashSet<string>(only, StringComparer.Ordinal);
+            foreach (var icon in _icons.Values.Where(i => keep == null || keep.Contains(i.Name)).OrderBy(i => i.Name, StringComparer.Ordinal))
             {
                 sb.Append(icon.Name);
                 if (icon.Tags.Count > 0)

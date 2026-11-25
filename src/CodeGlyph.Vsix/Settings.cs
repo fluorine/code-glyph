@@ -34,6 +34,7 @@ namespace CodeGlyph.Vsix
 
         public static string SettingsPath => Path.Combine(Folder, "settings.json");
         public static string CachePath => Path.Combine(Folder, "selection-cache.json");
+        public static string GlossaryPath => Path.Combine(Folder, "glossary.json");
 
         private sealed class FileModel
         {

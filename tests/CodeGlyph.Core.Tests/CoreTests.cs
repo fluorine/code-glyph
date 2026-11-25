@@ -229,7 +229,7 @@ public class PipelineTests
         public Func<IReadOnlyList<SelectionRequest>, IReadOnlyList<IconSelection>> Answer = _ => Array.Empty<IconSelection>();
         public string Name => "fake";
 
-        public Task<IReadOnlyList<IconSelection>> SelectAsync(string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct)
+        public Task<IReadOnlyList<IconSelection>> SelectAsync(string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct, IReadOnlyList<GlyphHint>? hints = null)
         {
             Calls++;
             return Task.FromResult(Answer(requests));
@@ -253,7 +253,7 @@ public class PipelineTests
     {
         var (pipeline, fake, _) = Make();
         fake.Answer = reqs => reqs.Select(r => new IconSelection(r.Id, "mail", 0.95)).ToList();
-        var s = Sym("SendWelcomeEmail");
+        var s = Sym("SendWelcomeGreeting");
 
         await pipeline.ResolveAsync(new[] { s }, default);
         await pipeline.ResolveAsync(new[] { s }, default);
