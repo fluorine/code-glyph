@@ -8,7 +8,7 @@ using Task = System.Threading.Tasks.Task;
 namespace CodeGlyph.Vsix
 {
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [InstalledProductRegistration("CodeGlyph", "Semantic watermark icons behind C# code", "0.2.0")]
+    [InstalledProductRegistration("CodeGlyph", "Semantic watermark icons behind C# code", "0.3.0")]
     [ProvideOptionPage(typeof(ProviderOptionsPage), "CodeGlyph", "Provider", 0, 0, true)]
     [ProvideOptionPage(typeof(AppearanceOptionsPage), "CodeGlyph", "Appearance", 0, 0, true)]
     [ProvideMenuResource("Menus.ctmenu", 1)]

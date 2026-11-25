@@ -2,7 +2,7 @@
   "name": "codeglyph-vscode",
   "displayName": "CodeGlyph",
   "description": "Subtle AI-chosen watermark icons behind functions, classes and properties, in any programming language.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "fluorinestudios",
   "license": "MIT",
   "icon": "media/icon.png",

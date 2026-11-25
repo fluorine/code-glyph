@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="CodeGlyph.4c7d1e92-5a03-4b68-8e1f-9d2a7b3c6e50" Version="0.2.0" Language="en-US" Publisher="Joseph the Developer" />
+    <Identity Id="CodeGlyph.4c7d1e92-5a03-4b68-8e1f-9d2a7b3c6e50" Version="0.3.0" Language="en-US" Publisher="Joseph the Developer" />
     <DisplayName>CodeGlyph</DisplayName>
     <Description xml:space="preserve">Draws one subtle icon behind each C# class, method and property. An AI model picks the icon from the name and comments. No icon is shown when no icon clearly fits.</Description>
     <MoreInfo>https://github.com/fluorine/code-glyph</MoreInfo>
