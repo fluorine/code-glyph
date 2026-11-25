@@ -4,6 +4,9 @@ namespace CodeGlyph
 
     public enum RenderStyle { Outline, Filled, Duotone }
 
+    /// <summary>How sure the model must be before an icon is shown. Strict is 0.7, Balanced 0.5, Generous 0.4.</summary>
+    public enum IconSensitivity { Strict, Balanced, Generous }
+
     public enum HorizontalAlignment { ViewportRight, AfterCode, CenterOfFreeSpace }
 
     public enum VerticalAlignment { Top, Center, Bottom }
@@ -37,7 +40,15 @@ namespace CodeGlyph
         public bool ShowForMethods { get; init; } = true;
         public bool ShowForProperties { get; init; } = true;
         public int MinSymbolLines { get; init; } = 4;
-        public double MinConfidence { get; init; } = 0.7;
+        public IconSensitivity Sensitivity { get; init; } = IconSensitivity.Balanced;
+
+        /// <summary>Advanced. An exact limit from 0 to 1. 0 means use Sensitivity.</summary>
+        public double MinConfidence { get; init; } = 0;
+
+        public double ConfidenceLimit =>
+            MinConfidence > 0 ? MinConfidence
+            : Sensitivity == IconSensitivity.Strict ? 0.7
+            : Sensitivity == IconSensitivity.Generous ? 0.4 : 0.5;
 
         public bool Shows(SymbolKind kind) =>
             kind == SymbolKind.Type ? ShowForTypes :

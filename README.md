@@ -60,6 +60,22 @@ The icon comes from the first source that has an answer:
 
 A method name that starts with a verb (Create, Delete, Get, Send, Validate, Update, Sync) gets a small badge in the corner of its icon. Turn this off with "Verb badges".
 
+## Icon sensitivity
+
+The model rates how sure it is of each icon. "Icon sensitivity" (Tools → Options → CodeGlyph → Provider)
+sets how sure it must be before CodeGlyph shows the icon.
+
+| Level | Shows | Use it when |
+|---|---|---|
+| Strict | Only close matches. Fewest icons. | You want only icons that are clearly right. |
+| Balanced (default) | Icons that a developer would accept. | Most projects. |
+| Generous | More icons, with looser matches. | You want an icon on most symbols. |
+
+A change shows at once, with no new model calls. "Exact confidence limit" (Advanced) replaces the level with a number from 0.05 to 1.
+
+With the "Sticky" vertical behavior, an icon stays on screen while any part of its block is visible.
+It shrinks as the block scrolls away and goes only when almost none of the block is left.
+
 ## Change or hide an icon
 
 Put a `.codeglyph.json` file in your repository. CodeGlyph uses the nearest file above the source file.

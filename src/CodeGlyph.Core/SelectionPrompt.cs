@@ -35,7 +35,7 @@ namespace CodeGlyph
     public static class SelectionPrompt
     {
         /// <summary>Part of every cache key. Raise it when the instructions change.</summary>
-        public const string Version = "2";
+        public const string Version = "3";
 
         public static readonly string[] GenericIcons =
         {
@@ -73,8 +73,8 @@ namespace CodeGlyph
             sb.AppendLine("- Answer null when no icon clearly fits. No icon is better than a vague icon.");
             sb.AppendLine("- Do not use these generic icons unless the name or comments name that exact concept: "
                 + string.Join(", ", GenericIcons) + ".");
-            sb.AppendLine("- Do not pick an icon only because of the programming construct (class, method, handler, helper, manager, service, utility, base).");
-            sb.AppendLine("- confidence is a number from 0 to 1. Use 0.9 or more only when the match is obvious.");
+            sb.AppendLine("- Do not pick an icon only because of the programming construct (class, method, handler, helper, manager, service, utility, base, module, controller).");
+            sb.AppendLine("- confidence is a number from 0 to 1. Use 0.9 or more only when the match is obvious. Use 0.7 to 0.89 for a good specific fit. Use 0.5 to 0.69 for a reasonable fit that a developer would accept. Use less than 0.5 only when the icon is a guess.");
             sb.AppendLine("- Use only names that appear in the ICON LIST. Copy each name exactly.");
             sb.AppendLine("- folder is a weak hint about the area of the code. Never choose an icon only from the folder.");
             sb.AppendLine("- hints lists icons this project already uses for a word. Use the same icon for the same concept when it fits.");

@@ -41,7 +41,7 @@ public class PlacementTests
     }
 
     [Fact]
-    public void NoIconWhenSymbolIsTooShort()
+    public void NoIconWhenTheBlockIsTooShortInTotal()
     {
         Assert.Null(PlacementCalculator.Calculate(0, 40, 100, 800, 600, Style));
     }
@@ -79,6 +79,28 @@ public class PlacementTests
         Assert.True(sticky.Top >= 0);
         var scrolling = PlacementCalculator.Calculate(-300, 300, 100, 800, 600, Style with { VerticalBehavior = VerticalBehavior.ScrollWithCode })!.Value;
         Assert.Equal(0, scrolling.Top + scrolling.Size / 2, 3);
+    }
+
+    [Fact]
+    public void StickyIconShrinksWithTheVisiblePartAndGoesAwayAtTheEnd()
+    {
+        // The block starts above the view. Its bottom edge climbs, so less of it stays visible.
+        var sizes = new[] { 300.0, 120, 60, 30, 10 }
+            .Select(visible => PlacementCalculator.Calculate(-100, visible, 100, 800, 600, Style))
+            .ToArray();
+        Assert.All(sizes, p => Assert.NotNull(p));
+        Assert.True(sizes[0]!.Value.Size > sizes[1]!.Value.Size);
+        Assert.True(sizes[3]!.Value.Size > sizes[4]!.Value.Size);
+        Assert.Null(PlacementCalculator.Calculate(-395, 5, 100, 800, 600, Style));
+        Assert.Null(PlacementCalculator.Calculate(-400, 0, 100, 800, 600, Style));
+    }
+
+    [Fact]
+    public void ScrollingIconStillNeedsTheMinimumSize()
+    {
+        var style = Style with { VerticalBehavior = VerticalBehavior.ScrollWithCode };
+        Assert.Null(PlacementCalculator.Calculate(0, 40, 100, 800, 600, style));
+        Assert.NotNull(PlacementCalculator.Calculate(-100, 300, 100, 800, 600, style));
     }
 }
 

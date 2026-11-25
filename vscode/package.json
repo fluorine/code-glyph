@@ -49,7 +49,16 @@
         "codeglyph.openAiBaseUrl": { "type": "string", "scope": "machine", "default": "https://api.openai.com/v1", "description": "Any OpenAI-compatible endpoint." },
         "codeglyph.claudeCliPath": { "type": "string", "scope": "machine", "default": "claude", "description": "Path of the claude command. It can only be set in user settings." },
         "codeglyph.claudeCliModel": { "type": "string", "default": "haiku" },
-        "codeglyph.minConfidence": { "type": "number", "default": 0.7, "minimum": 0, "maximum": 1, "description": "The model must be at least this sure. Higher values show fewer icons." },
+                "codeglyph.iconSensitivity": {
+          "type": "string", "default": "balanced", "enum": [ "strict", "balanced", "generous" ],
+          "enumDescriptions": [
+            "Strict: only close matches. Fewest icons.",
+            "Balanced: recommended. Icons that a developer would accept.",
+            "Generous: more icons, with looser matches."
+          ],
+          "markdownDescription": "How sure the model must be before an icon is shown. A change shows at once, with no new model calls."
+        },
+        "codeglyph.minConfidence": { "type": [ "number", "null" ], "default": null, "minimum": 0, "maximum": 1, "markdownDescription": "Advanced. An exact confidence limit from 0 to 1. It replaces `#codeglyph.iconSensitivity#`. Leave it empty to use the sensitivity. Strict is 0.7, Balanced 0.5, Generous 0.4." },
         "codeglyph.editDelaySeconds": { "type": "number", "default": 15, "minimum": 0, "maximum": 600, "description": "Provider calls for new or changed symbols wait this long after your last edit. Cached icons are not delayed." },
         "codeglyph.useLocalWords": { "type": "boolean", "default": true, "description": "Pick the icon with no model call when the name has known words like Email, Invoice or Order. Turn it off to let the model decide every name." },
         "codeglyph.logUsage": { "type": "boolean", "default": true, "description": "Write tokens and cost for each provider call to the CodeGlyph output channel." },

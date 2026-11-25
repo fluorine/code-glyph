@@ -25,6 +25,9 @@
     <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="18.12.1606" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" ExcludeAssets="runtime" />
+    <!-- Visual Studio ships these and redirects them to its own version. A copy in the VSIX can clash. -->
+    <PackageReference Include="System.Text.Json" Version="9.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="9.0.0" ExcludeAssets="runtime" />
     <ProjectReference Include="..\CodeGlyph.Core\CodeGlyph.Core.csproj" />
   </ItemGroup>
 

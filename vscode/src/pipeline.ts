@@ -30,6 +30,18 @@ export interface Explanation {
   confidence?: number;
 }
 
+/** Why each answer of one batch gave an icon or not. It goes to the log. */
+class Tally {
+  icons = 0; none = 0; lowConfidence = 0; generic = 0; unknownIcon = 0; noAnswer = 0;
+  readonly low: string[] = [];
+
+  summary(): string {
+    const without = this.none + this.lowConfidence + this.generic + this.unknownIcon + this.noAnswer;
+    return `Answers: ${this.icons} icons, ${without} without (${this.none} none, ${this.lowConfidence} below confidence, `
+      + `${this.generic} generic, ${this.unknownIcon} unknown icon name, ${this.noAnswer} no answer)`;
+  }
+}
+
 export class SelectionPipeline {
   readonly usage = new UsageTracker();
   private readonly inFlight = new Set<string>();
@@ -55,7 +67,8 @@ export class SelectionPipeline {
     const local = this.local(d);
     if (local) return local;
     const c = this.cache.get(this.keyOf(d));
-    return c?.icon && this.catalog.has(c.icon) ? c.icon : null;
+    // A low-confidence answer stays in the cache. The limit is applied here, so a change shows at once.
+    return c?.icon && this.catalog.has(c.icon) && c.confidence >= this.o.minConfidence() ? c.icon : null;
   }
 
   /** undefined: no override. icon null: the user hid the icon. */
@@ -71,7 +84,9 @@ export class SelectionPipeline {
     const local = this.local(d);
     if (local) return { icon: local, source: 'word' };
     const c = this.cache.get(this.keyOf(d));
-    return c?.icon && this.catalog.has(c.icon) ? { icon: c.icon, source: 'model', confidence: c.confidence } : { icon: null, source: 'none' };
+    return c?.icon && this.catalog.has(c.icon) && c.confidence >= this.o.minConfidence()
+      ? { icon: c.icon, source: 'model', confidence: c.confidence }
+      : { icon: null, source: 'none' };
   }
 
   /** A name whose known words agree on one icon needs no model call. */
@@ -117,11 +132,16 @@ export class SelectionPipeline {
         if (signal?.aborted) break;
         const batch = pending.slice(i, i + BATCH);
         try {
-          const missed = this.apply(batch, keyById, await this.ask(selector, batch, signal), false);
+          const tally = new Tally();
+          const missed = this.apply(batch, keyById, await this.ask(selector, batch, signal), false, tally);
           changed = missed.length < batch.length || changed;
           if (missed.length) {
-            this.apply(missed, keyById, await this.ask(selector, missed, signal), true);
+            this.apply(missed, keyById, await this.ask(selector, missed, signal), true, tally);
             changed = true;
+          }
+          if (this.o.logUsage()) {
+            this.o.log(tally.summary());
+            if (tally.low.length) this.o.log('Below the confidence limit, kept hidden: ' + tally.low.slice(0, 12).join('; '));
           }
           this.backoffSec = 0;
         } catch (e) {
@@ -153,7 +173,7 @@ export class SelectionPipeline {
   }
 
   /** A request with no answer is cached as "none" only when final. Otherwise it is returned. */
-  private apply(batch: Request[], keyById: Map<string, string>, answers: { id: string; icon: string | null; confidence: number }[], final: boolean): Request[] {
+  private apply(batch: Request[], keyById: Map<string, string>, answers: { id: string; icon: string | null; confidence: number }[], final: boolean, tally: Tally): Request[] {
     const min = this.o.minConfidence();
     const byId = new Map(answers.map(a => [a.id, a] as const));
     const missed: Request[] = [];
@@ -162,10 +182,20 @@ export class SelectionPipeline {
       if (!a && !final) { missed.push(r); continue; }
       let icon: string | null = null;
       let confidence = 0;
-      if (a?.icon && this.catalog.has(a.icon) && a.confidence >= min && !(a.confidence < 0.9 && GENERIC_ICONS.includes(a.icon))) {
+      if (!a) tally.noAnswer++;
+      else if (!a.icon) tally.none++;
+      else if (!this.catalog.has(a.icon)) tally.unknownIcon++;
+      else if (a.confidence < 0.9 && GENERIC_ICONS.includes(a.icon)) tally.generic++;
+      else {
         icon = a.icon;
         confidence = a.confidence;
-        if (confidence >= 0.9) this.o.glossary?.learn(r.descriptor, icon);
+        if (confidence < min) {
+          tally.lowConfidence++;
+          tally.low.push(`${r.descriptor.name} = ${icon} ${confidence.toFixed(2)}`);
+        } else {
+          tally.icons++;
+          if (confidence >= 0.9) this.o.glossary?.learn(r.descriptor, icon);
+        }
       }
       this.cache.set(keyById.get(r.id)!, icon, confidence);
     }

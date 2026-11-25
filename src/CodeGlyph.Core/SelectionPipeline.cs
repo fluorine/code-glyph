@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -61,6 +62,8 @@ namespace CodeGlyph
             var local = LocalIcon(d);
             if (local != null) return local;
             if (!_cache.TryGet(KeyOf(d), out var choice) || choice.Icon == null) return null;
+            // A low-confidence answer stays in the cache. The limit is applied here, so a change shows at once.
+            if (choice.Confidence < _style().ConfidenceLimit) return null;
             return _catalog.TryGet(choice.Icon, out var icon) ? icon : null;
         }
 
@@ -132,13 +135,20 @@ namespace CodeGlyph
                     try
                     {
                         var answers = await AskAsync(selector, batch, ct).ConfigureAwait(false);
-                        var missed = Apply(batch, keyById, answers, final: false);
+                        var tally = new AnswerTally();
+                        var missed = Apply(batch, keyById, answers, false, tally);
                         anyCached |= missed.Count < batch.Count;
                         if (missed.Count > 0)
                         {
                             var again = await AskAsync(selector, missed, ct).ConfigureAwait(false);
-                            Apply(missed, keyById, again, final: true);
+                            Apply(missed, keyById, again, true, tally);
                             anyCached = true;
+                        }
+                        if (_logUsage())
+                        {
+                            _log(tally.Summary());
+                            if (tally.Low.Count > 0)
+                                _log("Below the confidence limit, kept hidden: " + string.Join("; ", tally.Low.Take(12)));
                         }
                         _backoff = TimeSpan.Zero;
                     }
@@ -186,9 +196,9 @@ namespace CodeGlyph
         }
 
         /// <summary>Caches each answer. A request with no answer is cached as "none" only when final, else it is returned.</summary>
-        private List<SelectionRequest> Apply(List<SelectionRequest> batch, Dictionary<string, string> keyById, IReadOnlyList<IconSelection> answers, bool final)
+        private List<SelectionRequest> Apply(List<SelectionRequest> batch, Dictionary<string, string> keyById, IReadOnlyList<IconSelection> answers, bool final, AnswerTally tally)
         {
-            var min = _style().MinConfidence;
+            var min = _style().ConfidenceLimit;
             var byId = answers.GroupBy(a => a.Id).ToDictionary(g => g.Key, g => g.First());
             var missed = new List<SelectionRequest>();
             foreach (var request in batch)
@@ -200,18 +210,40 @@ namespace CodeGlyph
                 }
                 string? icon = null;
                 var confidence = 0.0;
-                if (answer != null && answer.Icon != null
-                    && _catalog.TryGet(answer.Icon, out _)
-                    && answer.Confidence >= min
-                    && !IsGeneric(answer.Icon, answer.Confidence))
+                if (answer == null) tally.NoAnswer++;
+                else if (answer.Icon == null) tally.None++;
+                else if (!_catalog.TryGet(answer.Icon, out _)) tally.UnknownIcon++;
+                else if (IsGeneric(answer.Icon, answer.Confidence)) tally.Generic++;
+                else
                 {
                     icon = answer.Icon;
                     confidence = answer.Confidence;
-                    if (confidence >= 0.9) _glossary?.Learn(request.Descriptor, icon);
+                    if (confidence < min)
+                    {
+                        tally.LowConfidence++;
+                        tally.Low.Add(request.Descriptor.Name + " = " + icon + " " + confidence.ToString("0.00", CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        tally.Icons++;
+                        if (confidence >= 0.9) _glossary?.Learn(request.Descriptor, icon);
+                    }
                 }
                 _cache.Set(keyById[request.Id], icon, confidence);
             }
             return missed;
+        }
+
+        /// <summary>Why each answer of one batch gave an icon or not. It goes to the log.</summary>
+        private sealed class AnswerTally
+        {
+            public int Icons, None, LowConfidence, Generic, UnknownIcon, NoAnswer;
+            public readonly List<string> Low = new List<string>();
+
+            public string Summary() =>
+                "Answers: " + Icons + " icons, " + (None + LowConfidence + Generic + UnknownIcon + NoAnswer) + " without ("
+                + None + " none, " + LowConfidence + " below confidence, " + Generic + " generic, "
+                + UnknownIcon + " unknown icon name, " + NoAnswer + " no answer)";
         }
 
         private static bool IsGeneric(string icon, double confidence) =>

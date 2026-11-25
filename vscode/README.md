@@ -48,6 +48,10 @@ Keys are kept in VS Code secret storage. Symbol names, signatures and comments g
 
 `container` and `kind` (`Type`, `Method` or `Property`) are optional. An entry with more fields wins. `"icon": null` hides the icon.
 
+## Icon sensitivity
+
+`codeglyph.iconSensitivity` sets how sure the model must be before an icon is shown: `strict` (only close matches, fewest icons), `balanced` (default) or `generous` (more icons, looser matches). A change shows at once, with no new model calls. The advanced setting `codeglyph.minConfidence` replaces the level with an exact number from 0 to 1.
+
 ## Icon choice
 
 The icon comes from `.codeglyph.json`, then from a short word list (a name with the word Email gets the mail icon with no model call), then from the cache, then from the model. Turn the word list off with `codeglyph.useLocalWords`. A method name that starts with a verb (Create, Delete, Get, Send, Validate, Update, Sync) gets a small badge. Turn it off with `codeglyph.verbBadges`. Set `codeglyph.colorMode` to `byIcon` to give each icon its own stable color.

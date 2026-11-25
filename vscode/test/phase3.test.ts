@@ -164,3 +164,69 @@ describe('glyph map entries', () => {
     expect(roots[0].children.map(c => c.sym.descriptor.name)).toEqual(['Method1', 'Method2']);
   });
 });
+
+describe('answer log', () => {
+  it('says why answers gave no icon', async () => {
+    const logs: string[] = [];
+    const sel: Selector = {
+      name: 's',
+      async select(_s, reqs) {
+        if (reqs.length < 5) return { answers: [{ id: '99', icon: null, confidence: 0 }], usage: emptyUsage() };
+        const answers = [
+          { id: reqs[0].id, icon: 'package', confidence: 0.95 },
+          { id: reqs[1].id, icon: null, confidence: 0 },
+          { id: reqs[2].id, icon: 'package', confidence: 0.4 },
+          { id: reqs[3].id, icon: 'box', confidence: 0.8 },
+          { id: reqs[4].id, icon: 'not-an-icon', confidence: 0.99 },
+        ];
+        return { answers, usage: emptyUsage() };
+      },
+    };
+    const p = new SelectionPipeline(catalog, new IconCache(), () => sel, { ...options, logUsage: () => true, log: m => logs.push(m) });
+    await p.resolve(['A1', 'B1', 'C1', 'D1', 'E1', 'F1'].map(name => desc({ name, kind: 'Type' })));
+    expect(logs.join('\n')).toContain('Answers: 1 icons, 5 without (1 none, 1 below confidence, 1 generic, 1 unknown icon name, 1 no answer)');
+  });
+});
+
+describe('confidence limit', () => {
+  it('keeps a low-confidence answer cached and shows it when the limit drops', async () => {
+    let asked = 0;
+    const sel: Selector = {
+      name: 's',
+      async select(_s, reqs) { asked += reqs.length; return { answers: reqs.map(r => ({ id: r.id, icon: 'package', confidence: 0.6 })), usage: emptyUsage() }; },
+    };
+    let limit = 0.7;
+    const logs: string[] = [];
+    const p = new SelectionPipeline(catalog, new IconCache(), () => sel, { ...options, minConfidence: () => limit, logUsage: () => true, log: m => logs.push(m) });
+    const d = desc({ name: 'Reconcile', kind: 'Type' });
+    await p.resolve([d]);
+    expect(p.lookup(d)).toBeNull();
+    expect(logs.join('\n')).toContain('Below the confidence limit, kept hidden: Reconcile = package 0.60');
+    limit = 0.5;
+    expect(p.lookup(d)).toBe('package');
+    expect(p.explain(d)).toEqual({ icon: 'package', source: 'model', confidence: 0.6 });
+    await p.resolve([d]);
+    expect(asked).toBe(1);
+  });
+  it('explains the confidence scale in the prompt', async () => {
+    const { buildSystem } = await import('../src/prompt');
+    const text = buildSystem(catalog);
+    expect(text).toContain('Use 0.5 to 0.69 for a reasonable fit');
+    expect(text).toContain('module, controller');
+  });
+});
+
+describe('icon sensitivity', () => {
+  it('maps the level to a confidence limit', async () => {
+    const { confidenceLimit } = await import('../src/sensitivity');
+    expect(confidenceLimit('strict', null)).toBe(0.7);
+    expect(confidenceLimit('balanced', null)).toBe(0.5);
+    expect(confidenceLimit('generous', undefined)).toBe(0.4);
+    expect(confidenceLimit('unknown', null)).toBe(0.5);
+  });
+  it('lets an exact limit win', async () => {
+    const { confidenceLimit } = await import('../src/sensitivity');
+    expect(confidenceLimit('strict', 0.6)).toBe(0.6);
+    expect(confidenceLimit('strict', 0)).toBe(0.7);
+  });
+});

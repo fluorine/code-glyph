@@ -18,6 +18,9 @@ namespace CodeGlyph
 
     public static class PlacementCalculator
     {
+        /// <summary>The icon of a partly visible block shrinks to this size, then goes away.</summary>
+        private const double VanishSize = 6;
+
         /// <summary>
         /// All inputs are in view pixels. Returns null when the icon cannot fit
         /// without touching code, which is the only way to guarantee no overlap.
@@ -31,13 +34,18 @@ namespace CodeGlyph
             double bandTop, double bandBottom, double codeRight,
             double viewportWidth, double viewportHeight, GlyphStyle style)
         {
+            // A block that is short in total never gets an icon.
+            if (bandBottom - bandTop < style.MinSize) return null;
+
             var visTop = Math.Max(bandTop, 0);
             var visBottom = Math.Min(bandBottom, viewportHeight);
 
-            // StickyInSymbol keeps the icon inside the visible part of the band.
+            // StickyInSymbol keeps the icon inside the visible part of the band. It shrinks while the
+            // block scrolls out and goes away only when almost none of the block is left.
             // ScrollWithCode measures the whole band, so a partly hidden icon scrolls out.
-            var spanTop = style.VerticalBehavior == VerticalBehavior.StickyInSymbol ? visTop : bandTop;
-            var spanBottom = style.VerticalBehavior == VerticalBehavior.StickyInSymbol ? visBottom : bandBottom;
+            var sticky = style.VerticalBehavior == VerticalBehavior.StickyInSymbol;
+            var spanTop = sticky ? visTop : bandTop;
+            var spanBottom = sticky ? visBottom : bandBottom;
             var spanHeight = spanBottom - spanTop;
             if (spanHeight <= 0) return null;
 
@@ -46,8 +54,11 @@ namespace CodeGlyph
             var freeLeft = style.AllowOverCode ? style.MarginToEdge : codeRight + style.MarginToCode;
             var freeWidth = freeRight - freeLeft;
 
+            // Not enough room beside the code, or a very narrow editor.
+            if (freeWidth < style.MinSize) return null;
+
             var size = Math.Min(Math.Min(spanHeight, freeWidth), style.MaxSize);
-            if (size < style.MinSize) return null;
+            if (size < (sticky ? VanishSize : style.MinSize)) return null;
 
             double left;
             switch (style.HorizontalAlignment)

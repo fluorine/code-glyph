@@ -22,9 +22,14 @@ namespace CodeGlyph.Vsix
         public ProviderKind Provider { get; set; } = ProviderKind.Auto;
 
         [Category("General")]
-        [DisplayName("Minimum confidence")]
-        [Description("The model must be at least this sure (0 to 1). Higher values show fewer icons.")]
-        public double MinConfidence { get; set; } = 0.7;
+        [DisplayName("Icon sensitivity")]
+        [Description("How sure the model must be before an icon is shown. Strict: only close matches, fewest icons. Balanced: recommended. Generous: more icons, looser matches. A change shows at once, with no new model calls.")]
+        public IconSensitivity Sensitivity { get; set; } = IconSensitivity.Balanced;
+
+        [Category("Advanced")]
+        [DisplayName("Exact confidence limit")]
+        [Description("0 uses Icon sensitivity. A number from 0.05 to 1 replaces it. Strict is 0.7, Balanced 0.5 and Generous 0.4.")]
+        public double MinConfidence { get; set; } = 0;
 
         [Category("General")]
         [DisplayName("Wait after editing (seconds)")]
@@ -75,6 +80,7 @@ namespace CodeGlyph.Vsix
             Enabled = s.Enabled;
             EditDelaySeconds = s.EditDelaySeconds;
             LogUsage = s.LogUsage;
+            Sensitivity = s.Style.Sensitivity;
             MinConfidence = s.Style.MinConfidence;
             Provider = s.Provider.Provider;
             AnthropicKey = s.Provider.AnthropicKey ?? "";
@@ -93,7 +99,7 @@ namespace CodeGlyph.Vsix
                 s.Enabled = Enabled;
                 s.EditDelaySeconds = System.Math.Max(0, System.Math.Min(600, EditDelaySeconds));
                 s.LogUsage = LogUsage;
-                s.Style = s.Style with { MinConfidence = System.Math.Max(0, System.Math.Min(1, MinConfidence)) };
+                s.Style = s.Style with { Sensitivity = Sensitivity, MinConfidence = System.Math.Max(0, System.Math.Min(1, MinConfidence)) };
                 s.Provider = new ProviderSettings
                 {
                     Provider = Provider,
@@ -147,7 +153,7 @@ namespace CodeGlyph.Vsix
         public VerticalAlignment VerticalAlignment { get; set; } = VerticalAlignment.Center;
 
         [Category("Layout")] [DisplayName("Vertical behavior")]
-        [Description("StickyInSymbol keeps the icon visible while any part of the symbol is on screen.")]
+        [Description("StickyInSymbol keeps the icon on screen while any part of its block is visible. It shrinks as the block scrolls away and goes only when the block is almost gone. ScrollWithCode moves the icon with the code.")]
         public VerticalBehavior VerticalBehavior { get; set; } = VerticalBehavior.StickyInSymbol;
 
         [Category("Style")] [DisplayName("Fade-in time (ms)")]
@@ -158,7 +164,7 @@ namespace CodeGlyph.Vsix
         public int MaxSize { get; set; } = 200;
 
         [Category("Layout")] [DisplayName("Minimum size (px)")]
-        [Description("If the free space is smaller than this, no icon is shown. This keeps icons off the code.")]
+        [Description("Blocks shorter than this, and free space narrower than this, get no icon. This keeps icons off the code. A partly visible block can shrink below this size with StickyInSymbol.")]
         public int MinSize { get; set; } = 48;
 
         [Category("Layout")] [DisplayName("Margin to code (px)")]

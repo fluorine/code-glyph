@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { IconCatalog } from './catalog';
 import { IconCache } from './cache';
 import { Glossary } from './glossary';
+import { confidenceLimit } from './sensitivity';
 import { GlyphMap } from './glyphmap';
 import { OVERRIDE_FILE, OverrideStore } from './overrides';
 import { wordsOf } from './prompt';
@@ -76,7 +77,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const catalog = IconCatalog.load(join(context.extensionPath, 'resources', 'icons.json.gz'));
     const cache = new IconCache(join(context.globalStorageUri.fsPath, 'selection-cache.json'));
     const pipeline = new SelectionPipeline(catalog, cache, () => createSelector(providerSettings()), {
-      minConfidence: () => cfg().get('minConfidence', 0.7),
+      minConfidence: () => confidenceLimit(cfg().get('iconSensitivity', 'balanced'), cfg().get<number | null>('minConfidence', null)),
       minSymbolLines: () => cfg().get('minSymbolLines', 4),
       logUsage: () => cfg().get('logUsage', true),
       useLocalWords: () => cfg().get('useLocalWords', true),

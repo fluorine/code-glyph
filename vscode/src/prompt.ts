@@ -3,7 +3,7 @@ import type { Descriptor } from './descriptor';
 import type { Hint } from './glossary';
 import { tokens } from './vocabulary';
 
-export const PROMPT_VERSION = '2';
+export const PROMPT_VERSION = '3';
 
 export const GENERIC_ICONS = ['file', 'code', 'braces', 'box', 'circle', 'square', 'shapes', 'settings', 'wrench', 'puzzle'];
 
@@ -33,8 +33,8 @@ export function buildSystem(catalog: IconCatalog, only?: string[]): string {
     'Rules:',
     '- Answer null when no icon clearly fits. No icon is better than a vague icon.',
     '- Do not use these generic icons unless the name or comments name that exact concept: ' + GENERIC_ICONS.join(', ') + '.',
-    '- Do not pick an icon only because of the programming construct (class, method, function, handler, helper, manager, service, utility, base).',
-    '- confidence is a number from 0 to 1. Use 0.9 or more only when the match is obvious.',
+    '- Do not pick an icon only because of the programming construct (class, method, function, handler, helper, manager, service, utility, base, module, controller).',
+    '- confidence is a number from 0 to 1. Use 0.9 or more only when the match is obvious. Use 0.7 to 0.89 for a good specific fit. Use 0.5 to 0.69 for a reasonable fit that a developer would accept. Use less than 0.5 only when the icon is a guess.',
     '- Use only names that appear in the ICON LIST. Copy each name exactly.',
     '- folder is a weak hint about the area of the code. Never choose an icon only from the folder.',
     '- hints lists icons this project already uses for a word. Use the same icon for the same concept when it fits.',

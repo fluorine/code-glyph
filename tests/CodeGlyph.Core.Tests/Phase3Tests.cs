@@ -113,3 +113,84 @@ public class OverrideFileTests : IDisposable
         Assert.Equal("package", p.Lookup(d)?.Name);
     }
 }
+
+public class AnswerLogTests
+{
+    private sealed class Mixed : IIconSelector
+    {
+        public string Name => "mixed";
+
+        public Task<IReadOnlyList<IconSelection>> SelectAsync(string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct, IReadOnlyList<GlyphHint>? hints = null)
+        {
+            if (requests.Count < 5)
+                return Task.FromResult<IReadOnlyList<IconSelection>>(new[] { new IconSelection("99", null, 0) });
+            return Task.FromResult<IReadOnlyList<IconSelection>>(new[]
+            {
+                new IconSelection(requests[0].Id, "package", 0.95),
+                new IconSelection(requests[1].Id, null, 0),
+                new IconSelection(requests[2].Id, "package", 0.4),
+                new IconSelection(requests[3].Id, "box", 0.8),
+                new IconSelection(requests[4].Id, "not-an-icon", 0.99),
+            });
+        }
+    }
+
+    [Fact]
+    public async Task LogSaysWhyAnswersGaveNoIcon()
+    {
+        var log = new List<string>();
+        var p = new SelectionPipeline(IconCatalog.LoadEmbedded(), new IconCache(), () => new Mixed(), () => new GlyphStyle(), log.Add);
+        var symbols = new[] { "A1", "B1", "C1", "D1", "E1", "F1" }
+            .Select(n => new SymbolDescriptor { Name = n, Kind = SymbolKind.Type, LineCount = 10 }).ToList();
+
+        await p.ResolveAsync(symbols, default);
+
+        Assert.Contains(log, l => l == "Answers: 1 icons, 5 without (1 none, 1 below confidence, 1 generic, 1 unknown icon name, 1 no answer)");
+    }
+}
+
+public class ConfidenceLimitTests
+{
+    private sealed class Fixed : IIconSelector
+    {
+        public int Asked;
+        public string Name => "fixed";
+
+        public Task<IReadOnlyList<IconSelection>> SelectAsync(string systemPrompt, IReadOnlyList<SelectionRequest> requests, CancellationToken ct, IReadOnlyList<GlyphHint>? hints = null)
+        {
+            Asked += requests.Count;
+            return Task.FromResult<IReadOnlyList<IconSelection>>(requests.Select(r => new IconSelection(r.Id, "package", 0.6)).ToList());
+        }
+    }
+
+    [Fact]
+    public async Task LowConfidenceAnswerStaysCachedAndAppearsWhenTheLimitDrops()
+    {
+        var sel = new Fixed();
+        var limit = 0.7;
+        var log = new List<string>();
+        var p = new SelectionPipeline(IconCatalog.LoadEmbedded(), new IconCache(), () => sel, () => new GlyphStyle { MinConfidence = limit }, log.Add);
+        var d = new SymbolDescriptor { Name = "Reconcile", Kind = SymbolKind.Type, LineCount = 10 };
+
+        await p.ResolveAsync(new[] { d }, default);
+        Assert.Null(p.Lookup(d));
+        Assert.Contains(log, l => l.StartsWith("Below the confidence limit, kept hidden: Reconcile = package 0.60"));
+
+        limit = 0.5;
+        Assert.Equal("package", p.Lookup(d)?.Name);
+        await p.ResolveAsync(new[] { d }, default);
+        Assert.Equal(1, sel.Asked);
+    }
+
+    [Fact]
+    public void DefaultLimitIsHalfAndPromptExplainsTheScale()
+    {
+        Assert.Equal(0.5, new GlyphStyle().ConfidenceLimit);
+        Assert.Equal(0.7, new GlyphStyle { Sensitivity = IconSensitivity.Strict }.ConfidenceLimit);
+        Assert.Equal(0.4, new GlyphStyle { Sensitivity = IconSensitivity.Generous }.ConfidenceLimit);
+        Assert.Equal(0.6, new GlyphStyle { Sensitivity = IconSensitivity.Strict, MinConfidence = 0.6 }.ConfidenceLimit);
+        var system = SelectionPrompt.BuildSystem(IconCatalog.LoadEmbedded());
+        Assert.Contains("Use 0.5 to 0.69 for a reasonable fit", system);
+        Assert.Contains("module, controller", system);
+    }
+}
